@@ -39,9 +39,11 @@ export function boot(canvas){
   ui.navigate = (mode, payload={}) => game.setMode(mode, payload);
 
   (async () => {
-    try { await audio.init(); } catch(e) { console.warn('Audio init error (non-fatal):', e); }
-    try { await audio.loadAll(); } catch(e) { console.warn('Audio load error (non-fatal):', e); }
-    try { await sprites.loadAll(); } catch(e) { console.error('Sprite load error:', e); }
+    console.log('[Boot] Starting asset load...');
+    try { await audio.init(); console.log('[Boot] Audio init OK'); } catch(e) { console.warn('Audio init error (non-fatal):', e); }
+    try { await audio.loadAll(); console.log('[Boot] Audio load OK'); } catch(e) { console.warn('Audio load error (non-fatal):', e); }
+    try { await sprites.loadAll(); console.log('[Boot] Sprites load OK'); } catch(e) { console.error('Sprite load error:', e); }
+    console.log('[Boot] Entering menu');
     game.setMode('menu');
   })();
 

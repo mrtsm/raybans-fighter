@@ -93,13 +93,15 @@ export class SpriteManager {
     const poses = ['idle','light','heavy','block','jump','crouch','hitstun','ko','special','victory'];
     const total = fighters.length * poses.length + 2;
     let done = 0;
+    const bust = `?v=${Date.now()}`;
     const load = (src) => new Promise((res) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => { done++; onProgress?.(done/total); res(img); };
-      img.onerror = (e) => { console.warn('Sprite failed to load:', src, e); done++; onProgress?.(done/total); res(null); };
-      img.src = src;
+      img.onerror = (e) => { console.warn('Sprite FAILED:', src, e); done++; onProgress?.(done/total); res(null); };
+      img.src = src + bust;
     });
+    console.log('[Sprites] Loading', total, 'assets...');
     for (const f of fighters) {
       this.sprites[f] = {};
       for (const p of poses) {
@@ -108,6 +110,8 @@ export class SpriteManager {
     }
     this.sprites.arena_bg = await load('assets/sprites/arena_bg.png');
     this.sprites.title_bg = await load('assets/sprites/title_bg.png');
+    const ok = Object.entries(this.sprites).filter(([k,v]) => typeof v === 'object' && v !== null && !(v instanceof HTMLImageElement)).map(([k,v]) => [k, Object.values(v).filter(Boolean).length]);
+    console.log('[Sprites] Loaded fighters:', ok, 'bg:', !!this.sprites.arena_bg);
     this.loaded = true;
   }
   get(fighterId, state, attackKind) {
