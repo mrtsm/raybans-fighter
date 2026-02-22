@@ -4,10 +4,54 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
   <title>Ray-Bans Fighter</title>
+
+  <!-- Futuristic display font for neon HUD/UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&display=swap" rel="stylesheet">
+
   <style>
-    html,body{margin:0;height:100%;background:#0a0a0a;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+    :root{
+      --bg0:#03040a;
+      --bg1:#071022;
+      --bg2:#050813;
+    }
+
+    html,body{margin:0;height:100%;}
+    body{
+      background:
+        radial-gradient(1200px 800px at 50% 20%, rgba(45,180,255,0.16), transparent 60%),
+        radial-gradient(900px 700px at 20% 80%, rgba(180,90,255,0.12), transparent 62%),
+        linear-gradient(135deg, var(--bg0), var(--bg1) 55%, var(--bg2));
+      color:#fff;
+      font-family: Orbitron, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      overflow:hidden;
+    }
+
     #wrap{display:flex;align-items:center;justify-content:center;height:100%;}
-    canvas{width:min(600px,100vw);height:min(600px,100vh);image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;}
+
+    canvas{
+      width:min(600px,100vw);
+      height:min(600px,100vh);
+      /* Crisp scaling while keeping vector-drawn shapes nice */
+      image-rendering:auto;
+      touch-action:none;
+      filter: drop-shadow(0 14px 26px rgba(0,0,0,0.55));
+      border-radius: 14px;
+    }
+
+    /* Subtle bezel */
+    #wrap::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(600px 520px at 50% 50%, rgba(255,255,255,0.06), transparent 70%),
+        radial-gradient(900px 700px at 50% 50%, rgba(0,0,0,0.55), transparent 62%);
+      mix-blend-mode: overlay;
+      opacity: 0.8;
+    }
   </style>
 </head>
 <body>

@@ -4,6 +4,7 @@ import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
 import { Fight } from './fight.js';
 import { Progression } from './progression.js';
+import { SpriteManager } from './sprites.js';
 
 const FPS = 30;
 const DT = 1 / FPS;
@@ -12,11 +13,12 @@ export function boot(canvas){
   const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
   ctx.imageSmoothingEnabled = false;
 
-  const renderer = new Renderer(canvas, ctx);
+  const sprites = new SpriteManager();
+  const renderer = new Renderer(canvas, ctx, sprites);
   const input = new Input(canvas);
   const audio = new AudioManager();
   const progression = new Progression();
-  const ui = new UI({ renderer, input, audio, progression });
+  const ui = new UI({ renderer, input, audio, progression, sprites });
 
   const game = {
     canvas, ctx, renderer, input, audio, progression, ui,
@@ -39,6 +41,7 @@ export function boot(canvas){
   (async () => {
     await audio.init();
     await audio.loadAll();
+    await sprites.loadAll();
     game.setMode('menu');
   })();
 
