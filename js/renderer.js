@@ -445,6 +445,22 @@ export class Renderer{
 
       c.shadowBlur = 0;
       c.restore();
+    } else {
+      // Fallback: colored rectangle if sprite missing
+      const pal = fighterPalette(fighterId);
+      c.save();
+      c.fillStyle = pal?.primary || f.color || '#ff00ff';
+      c.globalAlpha = 0.8;
+      c.fillRect(footX - 32, footY - 140, 64, 140);
+      c.strokeStyle = '#fff';
+      c.lineWidth = 2;
+      c.strokeRect(footX - 32, footY - 140, 64, 140);
+      c.globalAlpha = 1;
+      c.fillStyle = '#fff';
+      c.font = '10px system-ui';
+      c.textAlign = 'center';
+      c.fillText(fighterId, footX, footY - 70);
+      c.restore();
     }
 
     // Charge meter (keep gameplay affordance)

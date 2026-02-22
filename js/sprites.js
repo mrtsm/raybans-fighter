@@ -93,8 +93,11 @@ export class SpriteManager {
     const poses = ['idle','light','heavy','block','jump','crouch','hitstun','ko','special','victory'];
     const total = fighters.length * poses.length + 2;
     let done = 0;
-    const load = (src) => new Promise((res,rej) => {
-      const img = new Image(); img.onload = () => { done++; onProgress?.(done/total); res(img); }; img.onerror = rej; img.src = src;
+    const load = (src) => new Promise((res) => {
+      const img = new Image();
+      img.onload = () => { done++; onProgress?.(done/total); res(img); };
+      img.onerror = () => { console.warn('Sprite failed to load:', src); done++; onProgress?.(done/total); res(null); };
+      img.src = src;
     });
     for (const f of fighters) {
       this.sprites[f] = {};
