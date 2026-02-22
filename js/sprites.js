@@ -29,6 +29,15 @@ export const darken = (hex, amt=0.2)=>{
   return `#${f(r).toString(16).padStart(2,'0')}${f(g).toString(16).padStart(2,'0')}${f(b).toString(16).padStart(2,'0')}`;
 };
 
+// Default sprite facing direction (which way the art faces before any flip)
+// true = sprite art faces left, false = sprite art faces right
+export const SPRITE_FACES_LEFT = {
+  blaze: true,
+  granite: false,
+  shade: true,
+  volt: true,
+};
+
 const _fighterPalette = {
   blaze:   { primary:'#ff4b3a', secondary:'#ffd34a', glow:'#ff5533' },
   granite: { primary:'#9aa6b2', secondary:'#5a6773', glow:'#cfd8e3' },

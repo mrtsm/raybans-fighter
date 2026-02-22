@@ -3,6 +3,7 @@ import {
   fighterPalette,
   darken, withAlpha,
   fillRoundRect, strokeRoundRect, roundRectPath,
+  SPRITE_FACES_LEFT,
 } from './sprites.js';
 
 export class Renderer{
@@ -431,9 +432,11 @@ export class Renderer{
       c.save();
       c.translate(footX, footY);
 
-      // Sprites face left by default; flip when facing right
-      const flip = (f.facing === 1);
-      if(flip){ c.scale(-1,1); }
+      // Flip sprite to match facing direction
+      // If sprite art faces left and fighter faces right (or vice versa), flip
+      const spriteFacesLeft = SPRITE_FACES_LEFT[fighterId] ?? true;
+      const needsFlip = spriteFacesLeft ? (f.facing === 1) : (f.facing === -1);
+      if(needsFlip){ c.scale(-1,1); }
 
       // Glow
       const glow = f.glow || fighterPalette(fighterId)?.glow || '#ffffff';

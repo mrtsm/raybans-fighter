@@ -60,6 +60,8 @@ export class Fighter {
   recentActions(){ return this._recentActions.map(x=>x.a); }
 
   setFacingTo(opp){
+    // Lock facing during attacks, hitstun, charging, dash
+    if(this.attack || this.hitstunF>0 || this.charging || this.state==='dash') return;
     this.facing = (opp.x>=this.x) ? 1 : -1;
   }
 
