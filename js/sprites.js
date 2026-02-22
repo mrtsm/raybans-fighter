@@ -95,8 +95,9 @@ export class SpriteManager {
     let done = 0;
     const load = (src) => new Promise((res) => {
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.onload = () => { done++; onProgress?.(done/total); res(img); };
-      img.onerror = () => { console.warn('Sprite failed to load:', src); done++; onProgress?.(done/total); res(null); };
+      img.onerror = (e) => { console.warn('Sprite failed to load:', src, e); done++; onProgress?.(done/total); res(null); };
       img.src = src;
     });
     for (const f of fighters) {
@@ -123,6 +124,7 @@ export class SpriteManager {
     if (state === 'crouching') return f.crouch;
     if (state === 'hitstun') return f.hitstun;
     if (state === 'ko') return f.ko;
+    if (state === 'victory') return f.victory;
     if (state === 'charging') return f.special;
     return f.idle;
   }
