@@ -211,8 +211,8 @@ export class Renderer{
     c.setTransform(1,0,0,1,0,0);
 
     // Smooth HP / momentum
-    this._hud.p1Hp = lerp(this._hud.p1Hp, hud.p1.hpPct, 0.12);
-    this._hud.p2Hp = lerp(this._hud.p2Hp, hud.p2.hpPct, 0.12);
+    this._hud.p1Hp = lerp(this._hud.p1Hp, hud.p1.hpPct, 0.25);
+    this._hud.p2Hp = lerp(this._hud.p2Hp, hud.p2.hpPct, 0.25);
     this._hud.p1Mom = lerp(this._hud.p1Mom, hud.p1.momentum, 0.18);
     this._hud.p2Mom = lerp(this._hud.p2Mom, hud.p2.momentum, 0.18);
 
@@ -444,7 +444,16 @@ export class Renderer{
       c.shadowBlur = 15;
 
       c.imageSmoothingEnabled = true;
-      c.drawImage(im, -drawW/2, -drawH, drawW, drawH);
+
+      // White flash when in hitstun (draw bright, then normal on top)
+      if(f.hitstunF > 4){
+        c.globalAlpha = 1;
+        c.filter = 'brightness(3)';
+        c.drawImage(im, -drawW/2, -drawH, drawW, drawH);
+        c.filter = 'none';
+      } else {
+        c.drawImage(im, -drawW/2, -drawH, drawW, drawH);
+      }
 
       c.shadowBlur = 0;
       c.restore();

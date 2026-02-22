@@ -151,8 +151,8 @@ export class Fight {
     const r1 = this.combat.resolveMelee(this.p1, this.p2, { isPlayer:true, lastMove:this.lastMove });
     const r2 = this.combat.resolveMelee(this.p2, this.p1, { isPlayer:false });
 
-    if(r1) this._onCombatEvent(r1, this.p1, this.p2, true);
-    if(r2) this._onCombatEvent(r2, this.p2, this.p1, false);
+    if(r1){ console.log('[Combat] P1→P2:', r1.type, r1.kind||'', 'dist:', Math.abs(this.p1.x-this.p2.x).toFixed(0)); this._onCombatEvent(r1, this.p1, this.p2, true); }
+    if(r2){ console.log('[Combat] P2→P1:', r2.type, r2.kind||'', 'dist:', Math.abs(this.p1.x-this.p2.x).toFixed(0)); this._onCombatEvent(r2, this.p2, this.p1, false); }
 
     this.combat.update(dt, this.p1, this.p2);
     this.renderer.updateParticles(dt);
