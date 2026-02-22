@@ -1,0 +1,75 @@
+export const FIGHTERS = {
+  blaze: {
+    id:'blaze', name:'BLAZE', icon:'🔥',
+    health:90, dashPx:90, range:{ light:55, heavy:100, low:60 },
+    colors:{ core:'#ff4a2f', glow:'#ffb14a' },
+    voice:{ start:'blaze_start', special:'blaze_special', sig:'blaze_sig', win:'blaze_win', lose:'blaze_lose' },
+    theme:'music_blaze',
+    moves:{
+      light:{ startup:3, active:2, recovery:3, dmg:8, type:'mid' },
+      heavy:{ startup:8, active:3, recovery:6, dmg:18, type:'overhead', antiAir:true },
+      low:{ startup:3, active:2, recovery:3, dmg:8, type:'low' },
+      air:{ startup:3, active:3, recovery:4, dmg:10, type:'overhead' },
+      grab:{ startup:4, active:2, recovery:8, dmg:12, throwPx:120 },
+      special:{ cost:30, name:'FIREBALL', baseDmg:10 },
+      signature:{ cost:100, name:'INFERNO', dmg:25 },
+    },
+  },
+  granite:{
+    id:'granite', name:'GRANITE', icon:'🪨',
+    health:120, dashPx:60, range:{ light:65, heavy:80, low:70 },
+    colors:{ core:'#9aa2ad', glow:'#e2e6ea' },
+    voice:{ start:'granite_start', special:'granite_special', sig:'granite_sig', win:'granite_win', lose:'granite_lose' },
+    theme:'music_granite',
+    moves:{
+      light:{ startup:4, active:2, recovery:4, dmg:8, type:'mid', pushPx:40 },
+      heavy:{ startup:10, active:3, recovery:7, dmg:22, type:'mid', uncrouchable:true },
+      low:{ startup:5, active:2, recovery:5, dmg:8, type:'mid', antiAir:true },
+      air:{ startup:5, active:3, recovery:5, dmg:10, type:'mid', crossup:true },
+      grab:{ startup:4, active:2, recovery:9, dmg:18, throwPx:140, toCorner:true },
+      special:{ cost:30, name:'ROCK SHIELD' },
+      signature:{ cost:100, name:'AVALANCHE', dmg:25 },
+    },
+    armorDash:{ startF:2, endF:6, hits:1 },
+  },
+  shade:{
+    id:'shade', name:'SHADE', icon:'🌑',
+    health:90, dashPx:90, range:{ light:70, heavy:70, low:90 },
+    colors:{ core:'#7a3cff', glow:'#c9a5ff' },
+    voice:{ start:'shade_start', special:'shade_special', sig:'shade_sig', win:'shade_win', lose:'shade_lose' },
+    theme:'music_shade',
+    moves:{
+      light:{ startup:3, active:2, recovery:4, dmg:8, type:'mid' },
+      heavy:{ startup:8, active:3, recovery:6, dmg:18, type:'mid', teleportPreHitPx:60 },
+      low:{ startup:4, active:2, recovery:4, dmg:8, type:'low', pullPx:40 },
+      air:{ startup:3, active:3, recovery:4, dmg:10, type:'overhead' },
+      grab:{ startup:4, active:2, recovery:8, dmg:12, throwPx:120 },
+      special:{ cost:30, name:'TELEPORT' },
+      signature:{ cost:100, name:'ECLIPSE', dmg:25 },
+    },
+  },
+  volt:{
+    id:'volt', name:'VOLT', icon:'⚡',
+    health:100, dashPx:75, range:{ light:65, heavy:90, low:75 },
+    colors:{ core:'#31d0ff', glow:'#c0f4ff' },
+    voice:{ start:'volt_start', special:'volt_special', sig:'volt_sig', win:'volt_win', lose:'volt_lose' },
+    theme:'music_volt',
+    moves:{
+      light:{ startup:4, active:2, recovery:4, dmg:8, type:'mid' },
+      heavy:{ startup:8, active:3, recovery:6, dmg:18, type:'overhead', antiAir:true },
+      low:{ startup:4, active:2, recovery:4, dmg:8, type:'low', slide:true },
+      air:{ startup:3, active:3, recovery:4, dmg:10, type:'overhead', aoe:true },
+      grab:{ startup:4, active:2, recovery:8, dmg:12, throwPx:120 },
+      special:{ cost:30, name:'LIGHTNING BOLT', dmg:8, stunF:3 },
+      signature:{ cost:100, name:'STORM SURGE', dmg:25 },
+    },
+  }
+};
+
+export const MASTERIES = {
+  bronze: { name:'Bronze', xp:0 },
+  silver: { name:'Silver', xp:2000 },
+  gold: { name:'Gold', xp:8000 },
+  diamond: { name:'Diamond', xp:25000 },
+  master: { name:'Master', xp:50000 },
+};
