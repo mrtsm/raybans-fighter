@@ -431,8 +431,8 @@ export class Renderer{
       c.save();
       c.translate(footX, footY);
 
-      // Flip based on facing
-      const flip = (f.facing === -1);
+      // Sprites face left by default; flip when facing right
+      const flip = (f.facing === 1);
       if(flip){ c.scale(-1,1); }
 
       // Glow

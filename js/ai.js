@@ -13,6 +13,9 @@ export class AI {
     this.t += dt;
     if(this.cooldown>0){ this.cooldown-=dt; return []; }
 
+    // Don't pick actions if we can't act (wait without burning cooldown)
+    if(!self.canAct()) return [];
+
     // adaptation based on opponent last 20 actions
     const hist = opp.recentActions();
     const blockRate = hist.filter(a=>a==='down_hold').length / Math.max(1,hist.length);

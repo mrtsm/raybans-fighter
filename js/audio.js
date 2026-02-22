@@ -101,6 +101,7 @@ export class AudioManager{
   play(key, { vol=1, rate=1 } = {}){
     const buf = this.buffers.get(key);
     if(!buf) return;
+    this._ensureRunning();
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     src.playbackRate.value = rate;
@@ -112,10 +113,17 @@ export class AudioManager{
     return src;
   }
 
+  async _ensureRunning(){
+    if(this.ctx && this.ctx.state !== 'running'){
+      try { await this.ctx.resume(); } catch {}
+    }
+  }
+
   playMusic(key, { loop=true } = {}){
     if(this.musicKey === key) return;
     const buf = this.buffers.get(key);
     if(!buf) { this.musicKey=null; return; }
+    this._ensureRunning();
 
     const fade = 0.25;
     const now = this.ctx.currentTime;
