@@ -3,7 +3,6 @@ import {
   fighterPalette,
   darken, withAlpha,
   fillRoundRect, strokeRoundRect, roundRectPath,
-  SPRITE_FACES_LEFT,
 } from './sprites.js';
 
 export class Renderer{
@@ -432,23 +431,8 @@ export class Renderer{
       c.save();
       c.translate(footX, footY);
 
-      // Determine which pose sprite is being used
-      const poseKey = (
-        state==='attacking' ? (attackKind==='heavy'?'heavy': attackKind==='air'?'jump': attackKind==='low'?'crouch':'light') :
-        state==='blocking' ? 'block' :
-        state==='jumping' ? 'jump' :
-        state==='crouching' ? 'crouch' :
-        state==='hitstun' ? 'hitstun' :
-        state==='ko' ? 'ko' :
-        state==='victory' ? 'victory' :
-        state==='charging' ? 'special' :
-        'idle'
-      );
-      // Flip sprite to match facing direction
-      const facingMap = SPRITE_FACES_LEFT[fighterId];
-      const spriteFacesLeft = facingMap?.[poseKey] ?? true;
-      const needsFlip = spriteFacesLeft ? (f.facing === 1) : (f.facing === -1);
-      if(needsFlip){ c.scale(-1,1); }
+      // All sprites face LEFT; flip when fighter faces RIGHT
+      if(f.facing === 1){ c.scale(-1,1); }
 
       // Glow
       const glow = f.glow || fighterPalette(fighterId)?.glow || '#ffffff';

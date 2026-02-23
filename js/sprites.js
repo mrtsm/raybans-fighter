@@ -29,14 +29,9 @@ export const darken = (hex, amt=0.2)=>{
   return `#${f(r).toString(16).padStart(2,'0')}${f(g).toString(16).padStart(2,'0')}${f(b).toString(16).padStart(2,'0')}`;
 };
 
-// Per-sprite facing: true = art faces LEFT, false = art faces RIGHT
-// Poses: idle, light, heavy, block, jump, crouch, hitstun, ko, special, victory
-export const SPRITE_FACES_LEFT = {
-  blaze:   { idle:true,  light:true,  heavy:false, block:true,  jump:true,  crouch:false, hitstun:false, ko:false, special:false, victory:true  },
-  granite: { idle:false, light:false, heavy:false, block:true,  jump:false, crouch:false, hitstun:true,  ko:true,  special:true,  victory:true  },
-  shade:   { idle:false, light:true,  heavy:false, block:true,  jump:false, crouch:false, hitstun:true,  ko:true,  special:false, victory:false },
-  volt:    { idle:true,  light:true,  heavy:true,  block:false, jump:true,  crouch:false, hitstun:true,  ko:false, special:false, victory:true  },
-};
+// All sprites have been normalized to face LEFT at the file level.
+// Flip when fighter faces right (facing === 1).
+export const ALL_SPRITES_FACE_LEFT = true;
 
 const _fighterPalette = {
   blaze:   { primary:'#ff4b3a', secondary:'#ffd34a', glow:'#ff5533' },
