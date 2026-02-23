@@ -29,13 +29,13 @@ export const darken = (hex, amt=0.2)=>{
   return `#${f(r).toString(16).padStart(2,'0')}${f(g).toString(16).padStart(2,'0')}${f(b).toString(16).padStart(2,'0')}`;
 };
 
-// Default sprite facing direction (which way the art faces before any flip)
-// true = sprite art faces left, false = sprite art faces right
+// Per-sprite facing: true = art faces LEFT, false = art faces RIGHT
+// Poses: idle, light, heavy, block, jump, crouch, hitstun, ko, special, victory
 export const SPRITE_FACES_LEFT = {
-  blaze: true,
-  granite: false,
-  shade: true,
-  volt: true,
+  blaze:   { idle:true,  light:true,  heavy:false, block:true,  jump:true,  crouch:false, hitstun:false, ko:false, special:false, victory:true  },
+  granite: { idle:false, light:false, heavy:false, block:true,  jump:false, crouch:false, hitstun:true,  ko:true,  special:true,  victory:true  },
+  shade:   { idle:false, light:true,  heavy:false, block:true,  jump:false, crouch:false, hitstun:true,  ko:true,  special:false, victory:false },
+  volt:    { idle:true,  light:true,  heavy:true,  block:false, jump:true,  crouch:false, hitstun:true,  ko:false, special:false, victory:true  },
 };
 
 const _fighterPalette = {

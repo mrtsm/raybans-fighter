@@ -432,9 +432,21 @@ export class Renderer{
       c.save();
       c.translate(footX, footY);
 
+      // Determine which pose sprite is being used
+      const poseKey = (
+        state==='attacking' ? (attackKind==='heavy'?'heavy': attackKind==='air'?'jump': attackKind==='low'?'crouch':'light') :
+        state==='blocking' ? 'block' :
+        state==='jumping' ? 'jump' :
+        state==='crouching' ? 'crouch' :
+        state==='hitstun' ? 'hitstun' :
+        state==='ko' ? 'ko' :
+        state==='victory' ? 'victory' :
+        state==='charging' ? 'special' :
+        'idle'
+      );
       // Flip sprite to match facing direction
-      // If sprite art faces left and fighter faces right (or vice versa), flip
-      const spriteFacesLeft = SPRITE_FACES_LEFT[fighterId] ?? true;
+      const facingMap = SPRITE_FACES_LEFT[fighterId];
+      const spriteFacesLeft = facingMap?.[poseKey] ?? true;
       const needsFlip = spriteFacesLeft ? (f.facing === 1) : (f.facing === -1);
       if(needsFlip){ c.scale(-1,1); }
 
