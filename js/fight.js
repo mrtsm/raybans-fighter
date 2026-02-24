@@ -154,6 +154,14 @@ export class Fight {
     if(r1){ console.log('[Combat] P1→P2:', r1.type, r1.kind||'', 'dist:', Math.abs(this.p1.x-this.p2.x).toFixed(0)); this._onCombatEvent(r1, this.p1, this.p2, true); }
     if(r2){ console.log('[Combat] P2→P1:', r2.type, r2.kind||'', 'dist:', Math.abs(this.p1.x-this.p2.x).toFixed(0)); this._onCombatEvent(r2, this.p2, this.p1, false); }
 
+    // AI auto-release block
+    if(this._aiBlockTimer>0){
+      this._aiBlockTimer -= dt;
+      if(this._aiBlockTimer<=0){
+        this.p2.stopBlock();
+      }
+    }
+
     this.combat.update(dt, this.p1, this.p2);
     this.renderer.updateParticles(dt);
 
@@ -216,7 +224,12 @@ export class Fight {
   _applyAiInputs(actions){
     for(const step of actions){
       const a=step.action;
-      if(a==='down_hold'){ this.p2.startBlock('stand'); continue; }
+      if(a==='down_hold'){
+        this.p2.startBlock('stand');
+        // Auto-release AI block after a short window
+        this._aiBlockTimer = 0.35;
+        continue;
+      }
       if(this.phase!=='play') continue;
       if(a==='dash_left') this._dash(this.p2,-1);
       if(a==='dash_right') this._dash(this.p2,1);

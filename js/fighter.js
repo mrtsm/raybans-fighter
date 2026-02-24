@@ -209,7 +209,10 @@ export class Fighter {
     this.lastStand = this.hpPct>0 && this.hpPct<0.2;
 
     // timers
-    if(this.hitstunF>0) this.hitstunF--;
+    if(this.hitstunF>0){
+      this.hitstunF--;
+      if(this.hitstunF<=0 && this.state==='hit') this.state='idle';
+    }
 
     if(this.dashIframesF>0) this.dashIframesF--;
 
