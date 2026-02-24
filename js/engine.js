@@ -38,17 +38,66 @@ export function boot(canvas){
   };
   ui.navigate = (mode, payload={}) => game.setMode(mode, payload);
 
+  let loadProgress = 0;
+  let assetsReady = false;
+
   (async () => {
-    console.log('[Boot] Starting asset load...');
-    try { await audio.init(); console.log('[Boot] Audio init OK'); } catch(e) { console.warn('Audio init error (non-fatal):', e); }
-    try { await audio.loadAll(); console.log('[Boot] Audio load OK'); } catch(e) { console.warn('Audio load error (non-fatal):', e); }
-    try { await sprites.loadAll(); console.log('[Boot] Sprites load OK'); } catch(e) { console.error('Sprite load error:', e); }
-    console.log('[Boot] Entering menu');
+    try { await audio.init(); } catch(e) { console.warn('Audio init error (non-fatal):', e); }
+    // Load audio in background (don't block)
+    const audioPromise = audio.loadAll().catch(e => console.warn('Audio load error:', e));
+    // Sprites must finish before we show the game
+    try {
+      await sprites.loadAll((p) => { loadProgress = p; });
+    } catch(e) { console.error('Sprite load error:', e); }
+    // Wait for audio too (but sprites were the blocker)
+    await audioPromise;
+    assetsReady = true;
     game.setMode('menu');
   })();
 
   let acc = 0;
   let last = performance.now() / 1000;
+
+  function drawLoadingScreen(){
+    ctx.setTransform(1,0,0,1,0,0);
+    // Background
+    const g = ctx.createLinearGradient(0,0,0,600);
+    g.addColorStop(0,'#02050e');
+    g.addColorStop(1,'#050815');
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,600,600);
+
+    // Title
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 36px Orbitron, system-ui';
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(120,240,255,0.6)';
+    ctx.shadowBlur = 20;
+    ctx.fillText('RAY-BANS FIGHTER', 300, 250);
+    ctx.shadowBlur = 0;
+
+    // Loading bar
+    const barW = 300, barH = 12, barX = 150, barY = 310;
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barW, barH, 6);
+    ctx.fill();
+
+    const fillW = barW * loadProgress;
+    const fg = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+    fg.addColorStop(0, 'rgba(120,240,255,0.9)');
+    fg.addColorStop(1, 'rgba(180,100,255,0.9)');
+    ctx.fillStyle = fg;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, Math.max(fillW, 1), barH, 6);
+    ctx.fill();
+
+    // Percentage
+    ctx.font = '600 14px Orbitron, system-ui';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(`LOADING ${Math.round(loadProgress * 100)}%`, 300, 345);
+  }
 
   function frame(){
     const now = performance.now() / 1000;
@@ -56,6 +105,12 @@ export function boot(canvas){
     if(delta > 0.25) delta = 0.25;
     last = now;
     acc += delta;
+
+    if(!assetsReady){
+      drawLoadingScreen();
+      requestAnimationFrame(frame);
+      return;
+    }
 
     // fixed updates
     while(acc >= DT){
