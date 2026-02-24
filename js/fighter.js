@@ -14,7 +14,7 @@ export class Fighter {
     this.momentum = 0;
 
     this.x = side===-1 ? 160 : 440;
-    this.y = 330;
+    this.y = 380; // must match arena.floorY
     this.w = 90;
     this.h = 200;
 
