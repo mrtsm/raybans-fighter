@@ -17,9 +17,9 @@ export class AI {
 
     this.t = 0;
     this.cooldown = 0;
-    this.reactionMs = Math.max(50, ({ easy:350, normal:200, hard:120, nightmare:80 }[difficulty] ?? 200) - sb * 200);
-    this.specialChance = Math.min(0.5, ({ easy:0.08, normal:0.16, hard:0.28, nightmare:0.38 }[difficulty] ?? 0.16) + sb * 0.3);
-    this.aggression = Math.min(1.2, this.personality.aggression * ({ easy:0.6, normal:0.85, hard:1.0, nightmare:1.15 }[difficulty] ?? 0.85) + sb * 0.3);
+    this.reactionMs = Math.max(40, ({ easy:250, normal:150, hard:100, nightmare:60 }[difficulty] ?? 150) - sb * 200);
+    this.specialChance = Math.min(0.5, ({ easy:0.10, normal:0.20, hard:0.32, nightmare:0.42 }[difficulty] ?? 0.20) + sb * 0.3);
+    this.aggression = Math.min(1.2, this.personality.aggression * ({ easy:0.7, normal:1.0, hard:1.1, nightmare:1.2 }[difficulty] ?? 1.0) + sb * 0.3);
 
     // State machine
     this.state = 'neutral';
@@ -28,8 +28,8 @@ export class AI {
     this.planDelay = 0;
 
     // Combo execution — streak makes AI combo more
-    this.comboChance = Math.min(0.9, ({ easy:0.1, normal:0.3, hard:0.55, nightmare:0.75 }[difficulty] ?? 0.3) + sb * 0.4);
-    this.blockChance = Math.min(0.9, ({ easy:0.2, normal:0.4, hard:0.6, nightmare:0.8 }[difficulty] ?? 0.4) + sb * 0.3);
+    this.comboChance = Math.min(0.9, ({ easy:0.2, normal:0.45, hard:0.65, nightmare:0.80 }[difficulty] ?? 0.45) + sb * 0.4);
+    this.blockChance = Math.min(0.9, ({ easy:0.25, normal:0.45, hard:0.65, nightmare:0.85 }[difficulty] ?? 0.45) + sb * 0.3);
 
     // Pattern tracking
     this._opponentPatterns = { attack: 0, block: 0, dodge: 0, grab: 0 };
@@ -53,7 +53,20 @@ export class AI {
     }
 
     if(this.cooldown>0){ this.cooldown-=dt; return []; }
-    if(!self.canAct()) return [];
+    if(!self.canAct()){
+      // Force reset if stuck for too long
+      this._stuckFrames = (this._stuckFrames || 0) + 1;
+      if(this._stuckFrames > 120){ // 2 seconds at 60fps
+        self.attack = null;
+        self.hitstunF = 0;
+        self.guardBroken = false;
+        self.charging = false;
+        self.state = 'idle';
+        this._stuckFrames = 0;
+      }
+      return [];
+    }
+    this._stuckFrames = 0;
 
     this._trackPatterns(opp);
     this._assessState(self, opp);
