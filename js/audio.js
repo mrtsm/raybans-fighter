@@ -62,196 +62,217 @@ const VOICES = {
   volt_win:'assets/voices/volt_win.mp3',
 };
 
+/**
+ * AudioManager — Uses HTML5 Audio elements as primary (most compatible),
+ * with Web Audio API as enhancement when available.
+ * 
+ * HTML5 Audio works on virtually every browser including Meta glasses.
+ * Web Audio API may not be available or may be restricted.
+ */
 export class AudioManager{
   constructor(){
+    this.master = { music: 0.55, sfx: 0.7, voice: 0.85 };
+    this._ready = false;
+    this._unlocked = false;
+    
+    // HTML5 Audio elements for music (most compatible)
+    this._musicEl = null;
+    this.musicKey = null;
+    
+    // SFX pool — pre-created Audio elements
+    this._sfxPool = new Map(); // key -> [Audio, Audio, ...] (pool of 3 per sound)
+    this._sfxUrls = {};
+    
+    // Web Audio API (optional enhancement)
     this.ctx = null;
     this.buffers = new Map();
-    this.master = { music: 0.55, sfx: 0.7, voice: 0.85 };
-    this.musicNode = null;
     this.musicGain = null;
-    this.musicKey = null;
-    this.lastStand = false;
+    this.musicNode = null;
     this._filter = null;
     this._filterConnected = false;
-    this._ready = false;
-    this._pendingMusic = null; // queue music play for after unlock
-    this._rawBuffers = new Map(); // store raw ArrayBuffers before context ready
+    this._useWebAudio = false;
   }
 
-  /**
-   * LAZY INIT: Don't create AudioContext until a user gesture.
-   * Pre-fetch all audio files as raw ArrayBuffers so they're ready.
-   */
   async init(){
-    // Pre-fetch all audio as raw data (no AudioContext needed)
-    await this._prefetchAll();
+    // Merge all URLs
+    this._sfxUrls = { ...SFX, ...VOICES };
+    
+    // Pre-create HTML5 Audio elements for SFX (pool of 3 each for overlapping sounds)
+    const allSfx = { ...SFX, ...VOICES };
+    const seenUrls = new Set();
+    for(const [key, url] of Object.entries(allSfx)){
+      if(seenUrls.has(url + key)) continue;
+      seenUrls.add(url + key);
+      const pool = [];
+      for(let i = 0; i < 3; i++){
+        const a = new Audio();
+        a.preload = 'auto';
+        a.src = url;
+        pool.push(a);
+      }
+      this._sfxPool.set(key, { pool, idx: 0 });
+    }
 
-    // Set up gesture listeners to create AudioContext on first interaction
-    const unlockAudio = async () => {
-      if(this._ready) return;
-      console.log('[Audio] User gesture detected — creating AudioContext');
-      try {
-        const AC = window.AudioContext || window.webkitAudioContext;
+    // Try to set up Web Audio API as optional enhancement
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(AC){
         this.ctx = new AC({ latencyHint:'interactive' });
         this.musicGain = this.ctx.createGain();
         this.musicGain.gain.value = this.master.music;
         this.musicGain.connect(this.ctx.destination);
+        this._useWebAudio = true;
+        console.log('[Audio] Web Audio API available');
+      }
+    } catch(e){
+      console.log('[Audio] Web Audio not available, using HTML5 Audio only');
+    }
 
-        // Immediately resume (we're inside a gesture handler)
-        if(this.ctx.state !== 'running'){
-          await this.ctx.resume();
-        }
-
-        // Decode all pre-fetched buffers
-        await this._decodeAll();
-
-        this._ready = true;
-        console.log('[Audio] AudioContext running, buffers decoded:', this.buffers.size);
-
-        // Play any pending music
-        if(this._pendingMusic){
-          this.playMusic(this._pendingMusic.key, this._pendingMusic.opts);
-          this._pendingMusic = null;
-        }
-      } catch(e) {
-        console.warn('[Audio] Failed to create AudioContext:', e);
+    // Unlock audio on first user gesture
+    const unlock = () => {
+      if(this._unlocked) return;
+      this._unlocked = true;
+      console.log('[Audio] Unlocked by user gesture');
+      
+      // Resume Web Audio if available
+      if(this.ctx && this.ctx.state !== 'running'){
+        this.ctx.resume().catch(()=>{});
+      }
+      
+      // Play a silent sound to unlock HTML5 Audio on iOS/mobile
+      const silent = new Audio();
+      silent.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAABhkVUkZYAAAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAABhkVUkZYAAAAAAAAAAAAAAAAA';
+      silent.play().catch(()=>{});
+      
+      // If we had pending music, play it now
+      if(this._pendingMusic){
+        this.playMusic(this._pendingMusic);
+        this._pendingMusic = null;
       }
     };
-
-    // Listen on EVERY possible event type for the gesture
+    
     for(const evt of ['pointerdown','pointerup','click','mousedown','mouseup',
                        'touchstart','touchend','keydown','keyup']){
-      window.addEventListener(evt, unlockAudio, { passive: true, once: false });
+      window.addEventListener(evt, unlock, { passive: true });
     }
-  }
-
-  /**
-   * Pre-fetch all audio files as raw ArrayBuffers (no AudioContext needed).
-   */
-  async _prefetchAll(){
-    const entries = Object.entries({ ...MUSIC, ...SFX, ...VOICES });
-    const urlToKeys = new Map();
-    for(const [k,url] of entries){
-      if(!urlToKeys.has(url)) urlToKeys.set(url, []);
-      urlToKeys.get(url).push(k);
-    }
-    await Promise.all([...urlToKeys.entries()].map(async ([url, keys])=>{
-      try{
-        const r = await fetch(url);
-        if(!r.ok) return;
-        const ab = await r.arrayBuffer();
-        for(const k of keys) this._rawBuffers.set(k, ab);
-      } catch {}
-    }));
-    console.log('[Audio] Pre-fetched', this._rawBuffers.size, 'audio files');
-  }
-
-  /**
-   * Decode all pre-fetched ArrayBuffers into AudioBuffers.
-   */
-  async _decodeAll(){
-    const promises = [];
-    for(const [key, ab] of this._rawBuffers.entries()){
-      if(this.buffers.has(key)) continue;
-      promises.push(
-        this.ctx.decodeAudioData(ab.slice(0))
-          .then(buf => this.buffers.set(key, buf))
-          .catch(() => {})
-      );
-    }
-    await Promise.all(promises);
-    this._rawBuffers.clear(); // free memory
+    
+    this._ready = true;
+    console.log('[Audio] Init complete. SFX pool:', this._sfxPool.size, 'sounds');
   }
 
   keys(){ return { MUSIC, SFX, VOICES }; }
+  async loadAll(){ /* no-op — HTML5 Audio loads on demand */ }
 
-  // Legacy loadAll — now a no-op since we pre-fetch in init
-  async loadAll(){ }
-
+  /**
+   * Play a sound effect using HTML5 Audio pool (most compatible).
+   */
   play(key, { vol=1, rate=1, variations=false } = {}){
-    if(!this._ready || !this.ctx) return;
-    const buf = this.buffers.get(key);
-    if(!buf) return;
-    if(this.ctx.state !== 'running'){
-      this.ctx.resume().catch(()=>{});
-    }
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    let actualRate = rate;
-    if(variations){
-      actualRate += (Math.random() - 0.5) * 0.2;
-    }
-    src.playbackRate.value = actualRate;
-    const g = this.ctx.createGain();
+    if(!this._ready) return;
+    
+    const entry = this._sfxPool.get(key);
+    if(!entry) return;
+    
+    // Round-robin through the pool for overlapping sounds
+    const audio = entry.pool[entry.idx % entry.pool.length];
+    entry.idx++;
+    
     const isVoice = key.startsWith('blaze_')||key.startsWith('granite_')||key.startsWith('shade_')||key.startsWith('volt_');
-    g.gain.value = vol * (isVoice?this.master.voice:this.master.sfx);
-    src.connect(g).connect(this.ctx.destination);
-    src.start();
-    return src;
+    audio.volume = vol * (isVoice ? this.master.voice : this.master.sfx);
+    
+    if(variations){
+      audio.playbackRate = rate + (Math.random() - 0.5) * 0.2;
+    } else {
+      audio.playbackRate = rate;
+    }
+    
+    // Reset and play
+    audio.currentTime = 0;
+    audio.play().catch(()=>{}); // silently fail if not unlocked yet
   }
 
-  playMusic(key, opts = { loop:true }){
-    // If audio not ready yet, queue it for when it unlocks
-    if(!this._ready || !this.ctx){
-      this._pendingMusic = { key, opts };
-      console.log('[Audio] Queued music for after unlock:', key);
+  /**
+   * Play music using HTML5 Audio element (most compatible).
+   */
+  playMusic(key, opts = { loop: true }){
+    if(!this._ready){
+      this._pendingMusic = key;
+      return;
+    }
+    if(!this._unlocked){
+      this._pendingMusic = key;
+      console.log('[Audio] Music queued for after unlock:', key);
       return;
     }
     if(this.musicKey === key) return;
-    const buf = this.buffers.get(key);
-    if(!buf) { console.warn('[Audio] No buffer for', key); this.musicKey=null; return; }
-    if(this.ctx.state !== 'running'){
-      this.ctx.resume().catch(()=>{});
+    
+    const url = MUSIC[key];
+    if(!url){
+      console.warn('[Audio] No music URL for:', key);
+      return;
     }
-
-    const fade = 0.25;
-    const now = this.ctx.currentTime;
-
-    if(this.musicNode){
-      const old = this.musicNode;
-      this.musicGain.gain.cancelScheduledValues(now);
-      this.musicGain.gain.setValueAtTime(this.musicGain.gain.value, now);
-      this.musicGain.gain.linearRampToValueAtTime(0, now+fade);
-      setTimeout(()=>{ try{ old.stop(); }catch{} }, (fade*1000)+10);
+    
+    // Fade out old music
+    if(this._musicEl){
+      const old = this._musicEl;
+      const fadeOut = setInterval(()=>{
+        if(old.volume > 0.05){
+          old.volume = Math.max(0, old.volume - 0.05);
+        } else {
+          old.pause();
+          clearInterval(fadeOut);
+        }
+      }, 30);
     }
-
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = opts.loop !== false;
-    src.connect(this.musicGain);
-    this.musicNode = src;
+    
+    // Create new music element
+    const el = new Audio(url);
+    el.loop = opts.loop !== false;
+    el.volume = 0;
+    this._musicEl = el;
     this.musicKey = key;
-
-    this.musicGain.gain.setValueAtTime(0, now);
-    this.musicGain.gain.linearRampToValueAtTime(this.master.music, now+fade);
-    src.start();
-    console.log('[Audio] ▶ Playing music:', key, 'ctx.state:', this.ctx.state);
+    
+    el.play().then(()=>{
+      console.log('[Audio] ▶ Playing music:', key);
+      // Fade in
+      const fadeIn = setInterval(()=>{
+        if(el.volume < this.master.music - 0.05){
+          el.volume = Math.min(this.master.music, el.volume + 0.05);
+        } else {
+          el.volume = this.master.music;
+          clearInterval(fadeIn);
+        }
+      }, 30);
+    }).catch(e => {
+      console.warn('[Audio] Music play failed:', key, e);
+      // Queue for retry on next gesture
+      this._pendingMusic = key;
+      this._unlocked = false;
+    });
   }
 
   stopMusic(){
+    if(this._musicEl){
+      this._musicEl.pause();
+      this._musicEl.currentTime = 0;
+      this._musicEl = null;
+      this.musicKey = null;
+    }
     if(this.musicNode){
       try{ this.musicNode.stop(); }catch{}
       this.musicNode = null;
-      this.musicKey = null;
     }
   }
 
+  // Music filter effect (lowpass during slowmo) — Web Audio only
   setMusicFilter(freq){
-    if(!this.ctx) return;
+    // Skip if no Web Audio — HTML5 Audio doesn't support filters
+    if(!this.ctx || !this._useWebAudio) return;
     if(!this._filter){
       this._filter = this.ctx.createBiquadFilter();
       this._filter.type = 'lowpass';
       this._filter.frequency.value = 22050;
     }
     this._filter.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.1);
-    if(!this._filterConnected && this.musicNode){
-      try {
-        this.musicGain.disconnect();
-        this.musicGain.connect(this._filter);
-        this._filter.connect(this.ctx.destination);
-        this._filterConnected = true;
-      } catch {}
-    }
   }
 
   clearMusicFilter(){
