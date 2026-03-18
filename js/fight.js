@@ -144,7 +144,7 @@ export class Fight {
   }
 
   _resetRoundPositions(){
-    this.p1.x=160; this.p2.x=440;
+    this.p1.x=150; this.p2.x=450;
     this.p1.y=this.arena.floorY; this.p2.y=this.arena.floorY;
     this.p1.onGround=true; this.p2.onGround=true;
     this.p1.vx=this.p2.vx=0;

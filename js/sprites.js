@@ -87,12 +87,11 @@ export const neonText = (ctx, text, x,y, { color='#7df9ff', glow=null, align='ce
 };
 
 /**
- * Remove white background from a sprite image, returning a new canvas
- * with transparency where white pixels were.
- * Uses a two-pass approach: first detects background color from corners,
- * then removes it with edge anti-aliasing.
+ * Remove background from a sprite image (white, black, or any solid color),
+ * returning a new canvas with transparency where background pixels were.
+ * Detects background color by sampling edge pixels, then removes with soft anti-aliasing.
  */
-function removeWhiteBackground(img){
+function removeBackground(img){
   if(!img || !img.width) return img;
   const c = document.createElement('canvas');
   c.width = img.width;
@@ -180,7 +179,7 @@ export class SpriteManager {
         done++;
         onProgress?.(done/total);
         if(removeWhite){
-          res(removeWhiteBackground(img));
+          res(removeBackground(img));
         } else {
           res(img);
         }
