@@ -47,22 +47,28 @@ export function boot(canvas){
   const startGame = () => {
     if(!assetsReady || gameStarted) return;
     gameStarted = true;
+    // Force audio unlock — this click IS the user gesture
+    audio._unlocked = true;
+    if(audio.ctx && audio.ctx.state !== 'running'){
+      audio.ctx.resume().catch(()=>{});
+    }
     audio.playMusic('music_menu');
     game.setMode('splash');
     canvas.removeEventListener('click', startGame);
     canvas.removeEventListener('pointerdown', startGame);
+    canvas.removeEventListener('mousedown', startGame);
     window.removeEventListener('keydown', startGame);
   };
   canvas.addEventListener('click', startGame);
   canvas.addEventListener('pointerdown', startGame);
+  canvas.addEventListener('mousedown', startGame);
   window.addEventListener('keydown', startGame);
 
   (async () => {
     // Start audio pre-fetch + gesture listener setup (non-blocking)
     // AudioContext is created lazily on first user interaction
     audio.init().catch(e => console.warn('Audio init error (non-fatal):', e));
-    // Queue menu music immediately — will play once user clicks (audio unlock)
-    audio.playMusic('music_menu');
+    // Don't play music here — wait for user click (startGame) to unlock audio first
     // Load sprites (this is the visible progress bar)
     try {
       await sprites.loadAll((p) => { loadProgress = p; });

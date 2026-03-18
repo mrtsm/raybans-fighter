@@ -24,9 +24,16 @@ export class Input {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // Mouse click handlers for armband
+    // Unified click handler — works for both mouse events AND pointer events
+    // Meta glasses armband may only fire pointer events, not mouse events
+    this._clickHandled = false; // prevent double-fire from mouse+pointer
+
     canvas.addEventListener('mousedown', (e) => {
       e.preventDefault();
+      if(this._clickHandled) return; // already handled by pointerdown
+      this._clickHandled = true;
+      setTimeout(() => { this._clickHandled = false; }, 50);
+
       this._mouseDownAt.set(e.button, this.now);
       this._mouseChargeStarted.set(e.button, false);
 
@@ -62,12 +69,50 @@ export class Input {
       this._handleKeyUp(e);
     });
 
-    // touch fallback
+    // Pointer events — primary input path for Meta glasses armband
     this.touch = { active:false, start:null, startT:0, fingers:0, longPressFired:false };
-    canvas.addEventListener('pointerdown', (e)=>this._pd(e));
-    canvas.addEventListener('pointermove', (e)=>this._pm(e));
-    canvas.addEventListener('pointerup', (e)=>this._pu(e));
-    canvas.addEventListener('pointercancel', (e)=>this._pu(e));
+    canvas.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      // Push attack/special immediately on pointerdown (armband primary path)
+      if(!this._clickHandled) {
+        this._clickHandled = true;
+        setTimeout(() => { this._clickHandled = false; }, 50);
+
+        this._mouseDownAt.set(e.button, this.now);
+        this._mouseChargeStarted.set(e.button, false);
+
+        if(e.button === 0) { // Left click → attack
+          this._push('light');
+        }
+        if(e.button === 2) { // Right click → special
+          this._push('special');
+        }
+      }
+      // Touch tracking (for swipe gestures on actual touch screens)
+      if(e.pointerType === 'touch') {
+        this._pd(e);
+      }
+    });
+    canvas.addEventListener('pointermove', (e)=>{
+      if(e.pointerType === 'touch') this._pm(e);
+    });
+    canvas.addEventListener('pointerup', (e)=>{
+      // Handle charge release
+      const downT = this._mouseDownAt.get(e.button) ?? this.now;
+      const held = this.now - downT;
+      if(e.button === 0 && held >= 0.4) {
+        this._push('special_release');
+      }
+      this._mouseDownAt.delete(e.button);
+      this._mouseChargeStarted.delete(e.button);
+
+      if(e.pointerType === 'touch') this._pu(e);
+    });
+    canvas.addEventListener('pointercancel', (e)=>{
+      this._mouseDownAt.delete(e.button);
+      this._mouseChargeStarted.delete(e.button);
+      if(e.pointerType === 'touch') this._pu(e);
+    });
   }
 
   update(dt){

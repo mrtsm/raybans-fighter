@@ -94,6 +94,9 @@ export class AudioManager{
   }
 
   async init(){
+    // Set ready immediately — HTML5 Audio doesn't need async setup
+    this._ready = true;
+    
     // Merge all URLs
     this._sfxUrls = { ...SFX, ...VOICES };
     
@@ -156,7 +159,6 @@ export class AudioManager{
       window.addEventListener(evt, unlock, { passive: true });
     }
     
-    this._ready = true;
     console.log('[Audio] Init complete. SFX pool:', this._sfxPool.size, 'sounds');
   }
 
@@ -203,7 +205,7 @@ export class AudioManager{
       console.log('[Audio] Music queued for after unlock:', key);
       return;
     }
-    if(this.musicKey === key) return;
+    if(this.musicKey === key && this._musicEl && !this._musicEl.paused) return;
     
     const url = MUSIC[key];
     if(!url){
