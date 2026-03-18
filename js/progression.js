@@ -135,17 +135,65 @@ export class Progression{
 
   // Legacy dailyChallenge() for backward compatibility
   dailyChallenge(){
-    const list=[
-      { id:'glass', name:'Glass Cannon', desc:'Both deal 2× damage, half health.', mod:{ dmgMul:2, hpMul:0.5 } },
-      { id:'rush', name:'Momentum Rush', desc:'Momentum builds 3× faster.', mod:{ momentumMul:3 } },
-      { id:'quake', name:'Earthquake', desc:'Periodic shakes cause brief stumbles.', mod:{ quake:true } },
-      { id:'mirror', name:'Mirror Match', desc:'Both fighters are the same.', mod:{ mirror:true } },
-      { id:'speed', name:'Speed Demon', desc:'Everything moves 1.5× speed.', mod:{ speedMul:1.5 } },
-      { id:'iron', name:'Iron Fist', desc:'Heavies do 30% and recover slower.', mod:{ heavyDmg:30, heavyRecoveryAdd:4 } },
+    const dow = new Date().getDay(); // 0=Sun
+    const challenges = [
+      { id:'boss', name:'Boss Rush Sunday', desc:'AI is at maximum difficulty.', mod:{ bossRush:true } },
+      { id:'speed', name:'Double Speed Monday', desc:'Everything moves 2× speed!', mod:{ speedMul:2 } },
+      { id:'oneshot', name:'One-Hit KO Tuesday', desc:'One clean hit ends it.', mod:{ dmgMul:100, hpMul:0.01 } },
+      { id:'mirror', name:'Mirror Match Wednesday', desc:'Both fighters are the same.', mod:{ mirror:true } },
+      { id:'giant', name:'Giant Mode Thursday', desc:'Fighters are 1.5× size!', mod:{ scaleMul:1.5 } },
+      { id:'tiny', name:'Tiny Fighters Friday', desc:'Fighters shrunk to 0.6× size!', mod:{ scaleMul:0.6, speedMul:1.3 } },
+      { id:'chaos', name:'Random Chaos Saturday', desc:'Low gravity + double speed + no block!', mod:{ gravMul:0.4, speedMul:1.5, noBlock:true } },
     ];
-    const t=todayKey();
-    let seed=0; for(const ch of t) seed=(seed*31 + ch.charCodeAt(0))>>>0;
-    const pick=list[seed%list.length];
-    return pick;
+    return challenges[dow];
+  }
+
+  // Win streak tracking
+  get winStreak(){
+    return this.save._winStreak || 0;
+  }
+
+  get bestStreak(){
+    return this.save._bestStreak || 0;
+  }
+
+  addWin(){
+    if(!this.save._winStreak) this.save._winStreak = 0;
+    if(!this.save._bestStreak) this.save._bestStreak = 0;
+    this.save._winStreak++;
+    if(this.save._winStreak > this.save._bestStreak){
+      this.save._bestStreak = this.save._winStreak;
+    }
+    this._persist();
+  }
+
+  resetStreak(){
+    this.save._winStreak = 0;
+    this._persist();
+  }
+
+  streakDifficulty(){
+    const s = this.winStreak;
+    if(s >= 10) return 0.95; // brutal
+    if(s >= 5)  return 0.75; // hard
+    if(s >= 3)  return 0.55; // medium-hard
+    return 0.35;             // normal
+  }
+
+  streakTitle(){
+    const s = this.winStreak;
+    if(s >= 10) return 'LEGENDARY';
+    if(s >= 5)  return 'Unstoppable';
+    if(s >= 3)  return 'On Fire';
+    if(s >= 1)  return 'Warming Up';
+    return '';
+  }
+
+  streakMultiplier(){
+    const s = this.winStreak;
+    if(s >= 10) return 3.0;
+    if(s >= 5)  return 2.0;
+    if(s >= 3)  return 1.5;
+    return 1.0;
   }
 }

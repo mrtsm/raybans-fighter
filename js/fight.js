@@ -134,9 +134,11 @@ export class Fight {
     // Wire up sprite animations to renderer
     this.renderer.spriteAnimations = this.spriteAnimations;
 
-    // Pick arena background based on fighter matchup
-    const bgMap = { blaze: 1, granite: 3, shade: 2, volt: 0 };
-    const bgIdx = (bgMap[this.p1.id] || 0);
+    // Pick arena background based on fighter
+    // _arenaBackgrounds = ['arena_bg','arena_storm','arena_volcano','arena_shadow']
+    // blaze=volcano(2), volt=storm(1), shade=shadow(3), granite=default(0)
+    const bgMap = { blaze: 2, volt: 1, shade: 3, granite: 0 };
+    const bgIdx = bgMap[this.p1.id] ?? 0;
     if(this.renderer.setArenaBg) this.renderer.setArenaBg(bgIdx);
   }
 
@@ -571,6 +573,13 @@ export class Fight {
 
     this.progression.awardMatch({ fighterId:this.p1.id, win, difficulty:this.difficulty, xp, score:this.scoring.score, events });
 
+    // Track win streak
+    if(win){
+      this.progression.addWin();
+    } else {
+      this.progression.resetStreak();
+    }
+
     if(this.dailyMode) this.progression.setDailyCompleted();
 
     if(win){ this.audio.play(this.p1Def.voice.win); this.audio.playMusic('music_victory', { loop: false }); }
@@ -683,6 +692,12 @@ export class Fight {
       banner,
       bannerT,
       guardBreakWarning: this._guardBreakDisplayT > 0,
+      winStreak: {
+        current: this.progression.winStreak,
+        title: this.progression.streakTitle(),
+        multiplier: this.progression.streakMultiplier(),
+      },
+      dailyMod: this.isDaily ? (this.progression.dailyChallenge()?.name || '') : null,
     });
 
     this.renderer.endScene();
