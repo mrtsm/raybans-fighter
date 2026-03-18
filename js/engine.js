@@ -46,6 +46,8 @@ export function boot(canvas){
     // Start audio pre-fetch + gesture listener setup (non-blocking)
     // AudioContext is created lazily on first user interaction
     audio.init().catch(e => console.warn('Audio init error (non-fatal):', e));
+    // Queue menu music immediately — will play once user clicks (audio unlock)
+    audio.playMusic('music_menu');
     // Load sprites (this is the visible progress bar)
     try {
       await sprites.loadAll((p) => { loadProgress = p; });
@@ -54,6 +56,18 @@ export function boot(canvas){
     // Start with splash intro, NOT menu directly
     game.setMode('splash');
   })();
+
+  // Pause/resume audio when tab/app is hidden/visible
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      audio.stopMusic();
+    } else {
+      // Resume appropriate music based on current game mode
+      if(game.mode === 'menu' || game.mode === 'splash') audio.playMusic('music_menu');
+      else if(game.mode === 'select') audio.playMusic('music_select');
+      else if(game.mode === 'fight' && game.fight) audio.playMusic('music_' + game.fight.p1.id);
+    }
+  });
 
   let acc = 0;
   let last = performance.now() / 1000;
