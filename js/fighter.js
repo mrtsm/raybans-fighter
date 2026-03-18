@@ -7,7 +7,7 @@ export class Fighter {
     this.glow = def.colors.glow;
 
     this.side = side; // -1 left, +1 right
-    this.facing = side===-1 ? 1 : -1; // ALL sprites face LEFT. P1 (left side): flip to face right. P2 (right side): no flip, already faces left.
+    this.facing = side===-1 ? -1 : 1; // P1 (left): no flip (-1). P2 (right): flip (1) to face left.
 
     this.maxHp = def.health;
     this.hp = this.maxHp;
@@ -58,7 +58,7 @@ export class Fighter {
 
     // Daily mod flags
     this._blockDisabled = false;
-    this._renderScale = 1.0;
+    this._renderScale = def.spriteScale || 1.0;
 
     // Scale modifier (for giant/tiny daily challenge)
     this.scaleMul = 1.0;
@@ -84,7 +84,7 @@ export class Fighter {
 
   setFacingTo(opp){
     if(this.attack || this.hitstunF>0 || this.charging || this.state==='dash') return;
-    this.facing = (opp.x>=this.x) ? 1 : -1; // Sprites face LEFT. If opp is to the right, flip (facing=1). If opp is to the left, no flip (facing=-1).
+    this.facing = (opp.x>=this.x) ? -1 : 1; // If opp is to right: no flip (face right naturally). If opp is to left: flip.
   }
 
   isVulnerable(){

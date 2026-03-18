@@ -2,6 +2,7 @@ export const FIGHTERS = {
   blaze: {
     id:'blaze', name:'BLAZE', icon:'🔥',
     health:90, dashPx:90, walkSpeed:130, range:{ light:55, heavy:100, low:60 },
+    spriteScale: 1.0,
     colors:{ core:'#ff4a2f', glow:'#ffb14a' },
     voice:{ start:'blaze_start', special:'blaze_special', sig:'blaze_sig', win:'blaze_win', lose:'blaze_lose' },
     theme:'music_blaze',
@@ -18,6 +19,7 @@ export const FIGHTERS = {
   granite:{
     id:'granite', name:'GRANITE', icon:'🪨',
     health:120, dashPx:60, walkSpeed:80, range:{ light:65, heavy:80, low:70 },
+    spriteScale: 0.85, // Granite sprite fills more of canvas, scale down to match others
     colors:{ core:'#9aa2ad', glow:'#e2e6ea' },
     voice:{ start:'granite_start', special:'granite_special', sig:'granite_sig', win:'granite_win', lose:'granite_lose' },
     theme:'music_granite',
@@ -35,6 +37,7 @@ export const FIGHTERS = {
   shade:{
     id:'shade', name:'SHADE', icon:'🌑',
     health:90, dashPx:90, walkSpeed:140, range:{ light:70, heavy:70, low:90 },
+    spriteScale: 1.0,
     colors:{ core:'#7a3cff', glow:'#c9a5ff' },
     voice:{ start:'shade_start', special:'shade_special', sig:'shade_sig', win:'shade_win', lose:'shade_lose' },
     theme:'music_shade',
@@ -51,6 +54,7 @@ export const FIGHTERS = {
   volt:{
     id:'volt', name:'VOLT', icon:'⚡',
     health:100, dashPx:75, walkSpeed:110, range:{ light:65, heavy:90, low:75 },
+    spriteScale: 1.0,
     colors:{ core:'#31d0ff', glow:'#c0f4ff' },
     voice:{ start:'volt_start', special:'volt_special', sig:'volt_sig', win:'volt_win', lose:'volt_lose' },
     theme:'music_volt',
