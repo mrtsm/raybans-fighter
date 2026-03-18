@@ -26,8 +26,7 @@ export class Fight {
     this.spriteAnimations = new SpriteAnimationManager();
     this.spriteAnimations.init([p1Id, p2Id]); // async but non-blocking
 
-    // Fighter-specific arena background
-    this._arenaBg = this._arenaForFighter(p1Id);
+    // Arena background set in start() via renderer.setArenaBg()
 
     this.arena = {
       leftWall: 20,
@@ -63,6 +62,23 @@ export class Fight {
     if(this.mods.gravMul){
       this.p1.gravMul = this.mods.gravMul;
       this.p2.gravMul = this.mods.gravMul;
+    }
+
+    // Iron Fist mode: override heavy damage and recovery
+    if(this.mods.heavyDmg){
+      for(const f of [this.p1, this.p2]){
+        if(f.def.moves.heavy){
+          f.def = { ...f.def, moves: { ...f.def.moves, heavy: { ...f.def.moves.heavy, dmg: this.mods.heavyDmg } } };
+        }
+      }
+    }
+    if(this.mods.heavyRecoveryAdd){
+      for(const f of [this.p1, this.p2]){
+        if(f.def.moves.heavy){
+          const m = f.def.moves.heavy;
+          f.def = { ...f.def, moves: { ...f.def.moves, heavy: { ...m, recovery: m.recovery + this.mods.heavyRecoveryAdd } } };
+        }
+      }
     }
 
     this.round = { p1:0, p2:0 };
@@ -109,21 +125,8 @@ export class Fight {
     this._gravMul = this.mods.gravMul || 1;
   }
 
-  _arenaForFighter(fighterId){
-    const map = {
-      blaze: 'assets/sprites/arena_volcano.png',
-      volt: 'assets/sprites/arena_storm.png',
-      shade: 'assets/sprites/arena_shadow.png',
-      granite: 'assets/sprites/arena_bg.png',
-    };
-    const src = map[fighterId] || 'assets/sprites/arena_bg.png';
-    const img = new Image();
-    img.src = src;
-    return img;
-  }
-
   start(){
-    this.audio.playMusic('music_'+(this.p1.id==='blaze'?'blaze':this.p1.id==='granite'?'granite':this.p1.id==='shade'?'shade':this.p1.id==='volt'?'volt':'menu'));
+    this.audio.playMusic('music_'+this.p1.id);
     this.audio.play('sfx_round');
     this.audio.play(this.p1Def.voice.start);
     this.phase='intro';
@@ -134,9 +137,7 @@ export class Fight {
     // Wire up sprite animations to renderer
     this.renderer.spriteAnimations = this.spriteAnimations;
 
-    // Pick arena background based on fighter
-    // _arenaBackgrounds = ['arena_bg','arena_storm','arena_volcano','arena_shadow']
-    // blaze=volcano(2), volt=storm(1), shade=shadow(3), granite=default(0)
+    // Set arena background via renderer (uses SpriteManager)
     const bgMap = { blaze: 2, volt: 1, shade: 3, granite: 0 };
     const bgIdx = bgMap[this.p1.id] ?? 0;
     if(this.renderer.setArenaBg) this.renderer.setArenaBg(bgIdx);
@@ -252,6 +253,21 @@ export class Fight {
     this.p1.update(effectiveDt, this.arena, this._gravMul);
     this.p2.update(effectiveDt, this.arena, this._gravMul);
 
+    // Push fighters apart — prevent passing through each other
+    const MIN_SEPARATION = 50; // minimum distance between fighter centers
+    const dx = this.p2.x - this.p1.x;
+    const dist = Math.abs(dx);
+    if(dist < MIN_SEPARATION){
+      const overlap = MIN_SEPARATION - dist;
+      const pushDir = dx >= 0 ? 1 : -1; // push p1 left, p2 right (or vice versa)
+      const half = overlap / 2;
+      this.p1.x -= pushDir * half;
+      this.p2.x += pushDir * half;
+      // Re-clamp to arena walls
+      this.p1.x = Math.max(this.arena.leftWall, Math.min(this.arena.rightWall, this.p1.x));
+      this.p2.x = Math.max(this.arena.leftWall, Math.min(this.arena.rightWall, this.p2.x));
+    }
+
     // resolve melee
     const r1 = this.combat.resolveMelee(this.p1, this.p2, { isPlayer:true, lastMove:this.lastMove });
     const r2 = this.combat.resolveMelee(this.p2, this.p1, { isPlayer:false });
@@ -318,6 +334,11 @@ export class Fight {
       if(a==='heavy'){
         this.p1.startAttack('heavy');
         this.lastMove.lastWasJumpAtk=false;
+      }
+
+      // Right-click → instant special (armband)
+      if(a==='special'){
+        this._trySpecialOrSig(this.p1,this.p2,true,0.6);
       }
 
       if(a==='special_charge_start'){
@@ -618,7 +639,7 @@ export class Fight {
   }
 
   render(){
-    this.renderer.beginScene(this._arenaBg);
+    this.renderer.beginScene();
 
     const c=this.renderer.ctx;
     c.fillStyle='rgba(255,255,255,0.08)';

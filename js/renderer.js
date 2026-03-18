@@ -137,7 +137,7 @@ export class Renderer{
 
       // Dark overlay
       c.save();
-      c.globalAlpha = 0.70;
+      c.globalAlpha = 0.45;
       c.fillStyle = '#000';
       c.fillRect(0,0,this.w,this.h);
       c.restore();

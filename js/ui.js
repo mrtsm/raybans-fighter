@@ -260,7 +260,7 @@ export class UI {
       if(this._hsView){
         // High score view — any input goes back
         for(const a of acts){
-          if(a==='ui_back' || a==='ui_confirm' || a==='light' || a==='heavy'){
+          if(a==='ui_back' || a==='ui_confirm' || a==='light' || a==='heavy' || a==='special'){
             this.audio.play('sfx_nav');
             this._hsView = false;
           }
@@ -268,14 +268,33 @@ export class UI {
         return;
       }
 
+      // Debounce held inputs for menu navigation (prevent rapid-fire)
+      if(!this._menuNavCooldown) this._menuNavCooldown = 0;
+      this._menuNavCooldown = Math.max(0, this._menuNavCooldown - (1/60));
+
       for(const a of acts){
-        if(a==='jump' || a==='dash_left' || a==='walk_left_hold'){
-          this._menuSel = (this._menuSel - 1 + this._menuItems.length) % this._menuItems.length;
-          this.audio.play('sfx_nav');
+        // Up navigation: up arrow (jump) or up key tap
+        if(a==='jump' || a==='dash_left'){
+          if(this._menuNavCooldown <= 0){
+            this._menuSel = (this._menuSel - 1 + this._menuItems.length) % this._menuItems.length;
+            this.audio.play('sfx_nav');
+            this._menuNavCooldown = 0.18;
+          }
         }
-        if(a==='crouch' || a==='down_hold' || a==='dash_right' || a==='walk_right_hold'){
-          this._menuSel = (this._menuSel + 1) % this._menuItems.length;
-          this.audio.play('sfx_nav');
+        // Down navigation: down arrow (down_hold) or down key tap
+        if(a==='crouch' || a==='dash_right'){
+          if(this._menuNavCooldown <= 0){
+            this._menuSel = (this._menuSel + 1) % this._menuItems.length;
+            this.audio.play('sfx_nav');
+            this._menuNavCooldown = 0.18;
+          }
+        }
+        // Allow held arrows for navigation but with cooldown
+        if(a==='walk_left_hold' || (a==='down_hold' && false)){
+          // Ignore continuous walk_left_hold in menu to prevent rapid-fire
+        }
+        if(a==='walk_right_hold'){
+          // Ignore continuous walk_right_hold in menu to prevent rapid-fire
         }
         if(a==='ui_confirm' || a==='light'){
           this.audio.play('sfx_select');
@@ -297,10 +316,20 @@ export class UI {
 
     // ===== SELECT SCREEN =====
     if(this.screen==='select'){
+      // Debounce held inputs for select navigation
+      if(!this._selectNavCooldown) this._selectNavCooldown = 0;
+      this._selectNavCooldown = Math.max(0, this._selectNavCooldown - (1/60));
+
       for(const a of acts){
-        if(a==='ui_back' || a==='heavy') { this.audio.play('sfx_nav'); this.navigate?.('menu'); }
-        if(a==='dash_left' || a==='walk_left_hold') { this._cycleFighter(-1); }
-        if(a==='dash_right' || a==='walk_right_hold') { this._cycleFighter(+1); }
+        if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); }
+        if(a==='dash_left') { this._cycleFighter(-1); }
+        if(a==='dash_right') { this._cycleFighter(+1); }
+        if(a==='walk_left_hold') {
+          if(this._selectNavCooldown <= 0) { this._cycleFighter(-1); this._selectNavCooldown = 0.22; }
+        }
+        if(a==='walk_right_hold') {
+          if(this._selectNavCooldown <= 0) { this._cycleFighter(+1); this._selectNavCooldown = 0.22; }
+        }
         if(a==='jump') { this._cycleDifficulty(+1); }
         if(a==='crouch' || a==='down_hold') { this._cycleDifficulty(-1); }
         if(a==='ui_confirm' || a==='light') { this.audio.play('sfx_select'); this._startFight(); }
@@ -312,22 +341,38 @@ export class UI {
       this._resultsAnimT += dt;
 
       if(this._hsEntry?.active){
+        // Debounce for high score entry
+        if(!this._hsNavCooldown) this._hsNavCooldown = 0;
+        this._hsNavCooldown = Math.max(0, this._hsNavCooldown - (1/60));
+
         for(const a of acts){
           if(a==='jump'){
-            const c = this._hsEntry.initials[this._hsEntry.pos];
-            this._hsEntry.initials[this._hsEntry.pos] = String.fromCharCode(((c.charCodeAt(0) - 65 + 1) % 26) + 65);
-            this.audio.play('sfx_nav');
+            if(this._hsNavCooldown <= 0){
+              const c = this._hsEntry.initials[this._hsEntry.pos];
+              this._hsEntry.initials[this._hsEntry.pos] = String.fromCharCode(((c.charCodeAt(0) - 65 + 1) % 26) + 65);
+              this.audio.play('sfx_nav');
+              this._hsNavCooldown = 0.12;
+            }
           }
           if(a==='down_hold' || a==='crouch'){
-            const c = this._hsEntry.initials[this._hsEntry.pos];
-            this._hsEntry.initials[this._hsEntry.pos] = String.fromCharCode(((c.charCodeAt(0) - 65 + 25) % 26) + 65);
-            this.audio.play('sfx_nav');
+            if(this._hsNavCooldown <= 0){
+              const c = this._hsEntry.initials[this._hsEntry.pos];
+              this._hsEntry.initials[this._hsEntry.pos] = String.fromCharCode(((c.charCodeAt(0) - 65 + 25) % 26) + 65);
+              this.audio.play('sfx_nav');
+              this._hsNavCooldown = 0.12;
+            }
           }
-          if(a==='dash_right' || a==='walk_right_hold'){
+          if(a==='dash_right'){
             if(this._hsEntry.pos < 2) { this._hsEntry.pos++; this.audio.play('sfx_nav'); }
           }
-          if(a==='dash_left' || a==='walk_left_hold'){
+          if(a==='walk_right_hold'){
+            if(this._hsEntry.pos < 2 && this._hsNavCooldown <= 0) { this._hsEntry.pos++; this.audio.play('sfx_nav'); this._hsNavCooldown = 0.22; }
+          }
+          if(a==='dash_left'){
             if(this._hsEntry.pos > 0) { this._hsEntry.pos--; this.audio.play('sfx_nav'); }
+          }
+          if(a==='walk_left_hold'){
+            if(this._hsEntry.pos > 0 && this._hsNavCooldown <= 0) { this._hsEntry.pos--; this.audio.play('sfx_nav'); this._hsNavCooldown = 0.22; }
           }
           if(a==='ui_confirm' || a==='light'){
             this._insertHighScore(this._hsEntry.initials, this._hsEntry.score, this._hsEntry.fighter, this._hsEntry.daily);
@@ -338,7 +383,7 @@ export class UI {
       } else {
         for(const a of acts){
           if(a==='ui_confirm' || a==='light') { this.audio.play('sfx_select'); this.navigate?.('select'); }
-          if(a==='ui_back' || a==='heavy') { this.audio.play('sfx_nav'); this.navigate?.('menu'); }
+          if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); }
         }
       }
     }

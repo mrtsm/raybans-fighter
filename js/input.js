@@ -30,11 +30,11 @@ export class Input {
       this._mouseDownAt.set(e.button, this.now);
       this._mouseChargeStarted.set(e.button, false);
 
-      if(e.button === 0) { // Left click → light attack
+      if(e.button === 0) { // Left click → attack
         this._push('light');
       }
-      if(e.button === 2) { // Right click → heavy attack
-        this._push('heavy');
+      if(e.button === 2) { // Right click → special
+        this._push('special');
       }
     });
 
