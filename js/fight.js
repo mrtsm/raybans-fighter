@@ -3,9 +3,10 @@ import { Combat, clamp, makeHitParticles } from './combat.js';
 import { AI } from './ai.js';
 import { Scoring } from './scoring.js';
 import { FIGHTERS } from './data/fighters.js';
+import { SpriteAnimationManager } from './sprites.js';
 
 export class Fight {
-  constructor({ renderer, input, audio, progression, p1Id, p2Id, difficulty, dailyMod=null, streakBonus=0, dailyMode=false, streak=0 }){
+  constructor({ renderer, input, audio, progression, sprites, p1Id, p2Id, difficulty, dailyMod=null, streakBonus=0, dailyMode=false, streak=0, isDaily=false }){
     this.renderer = renderer;
     this.input = input;
     this.audio = audio;
@@ -14,10 +15,19 @@ export class Fight {
     this.p1Def = FIGHTERS[p1Id];
     this.p2Def = FIGHTERS[p2Id];
     this.difficulty = difficulty;
-    this.dailyMode = dailyMode;
+    this.dailyMode = dailyMode || isDaily;
+    this.isDaily = isDaily || dailyMode;
     this.streak = streak;
+    this.sprites = sprites; // SpriteManager reference
 
     this.mods = dailyMod?.mod || {};
+
+    // Sprite animation system
+    this.spriteAnimations = new SpriteAnimationManager();
+    this.spriteAnimations.init([p1Id, p2Id]); // async but non-blocking
+
+    // Fighter-specific arena background
+    this._arenaBg = this._arenaForFighter(p1Id);
 
     this.arena = {
       leftWall: 20,
@@ -99,6 +109,19 @@ export class Fight {
     this._gravMul = this.mods.gravMul || 1;
   }
 
+  _arenaForFighter(fighterId){
+    const map = {
+      blaze: 'assets/sprites/arena_volcano.png',
+      volt: 'assets/sprites/arena_storm.png',
+      shade: 'assets/sprites/arena_shadow.png',
+      granite: 'assets/sprites/arena_bg.png',
+    };
+    const src = map[fighterId] || 'assets/sprites/arena_bg.png';
+    const img = new Image();
+    img.src = src;
+    return img;
+  }
+
   start(){
     this.audio.playMusic('music_'+(this.p1.id==='blaze'?'blaze':this.p1.id==='granite'?'granite':this.p1.id==='shade'?'shade':this.p1.id==='volt'?'volt':'menu'));
     this.audio.play('sfx_round');
@@ -107,6 +130,14 @@ export class Fight {
     this.phaseT=0;
     this._roundStartTime=this._t;
     this._bannerT = 0;
+
+    // Wire up sprite animations to renderer
+    this.renderer.spriteAnimations = this.spriteAnimations;
+
+    // Pick arena background based on fighter matchup
+    const bgMap = { blaze: 1, granite: 3, shade: 2, volt: 0 };
+    const bgIdx = (bgMap[this.p1.id] || 0);
+    if(this.renderer.setArenaBg) this.renderer.setArenaBg(bgIdx);
   }
 
   _resetRoundPositions(){
@@ -140,6 +171,9 @@ export class Fight {
     dt *= this._speedMul;
 
     this._t += dt;
+
+    // Tick sprite animations
+    this.spriteAnimations.tick(dt * 1000);
 
     // Slowmo during KO
     let effectiveDt = dt;
@@ -575,7 +609,7 @@ export class Fight {
   }
 
   render(){
-    this.renderer.beginScene();
+    this.renderer.beginScene(this._arenaBg);
 
     const c=this.renderer.ctx;
     c.fillStyle='rgba(255,255,255,0.08)';

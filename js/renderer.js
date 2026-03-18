@@ -13,6 +13,7 @@ export class Renderer{
     this.h = canvas.height;
 
     this.sprites = spriteManager;
+    this.spriteAnimations = null; // Set by Fight when available
 
     this.shake = 0;
     this.shakeT = 0;
@@ -60,12 +61,36 @@ export class Renderer{
 
     // Visual hit-freeze
     this._freezeFrames = 0;
+
+    // Background parallax scrolling offset
+    this._parallaxOffset = 0;
+    this._parallaxSpeed = 12; // pixels per second for slow background scroll
+
+    // Arena background rotation
+    this._arenaBackgrounds = ['arena_bg','arena_storm','arena_volcano','arena_shadow'];
+    this._currentArenaBg = 0;
   }
 
   clear(){
     const c = this.ctx;
     c.setTransform(1,0,0,1,0,0);
     c.clearRect(0,0,this.w,this.h);
+  }
+
+  // Set which arena background to use (by index or name)
+  setArenaBg(indexOrName){
+    if(typeof indexOrName === 'number'){
+      this._currentArenaBg = indexOrName % this._arenaBackgrounds.length;
+    } else {
+      const idx = this._arenaBackgrounds.indexOf(indexOrName);
+      if(idx >= 0) this._currentArenaBg = idx;
+    }
+  }
+
+  // Get the current arena background image
+  getArenaBgImage(){
+    const key = this._arenaBackgrounds[this._currentArenaBg];
+    return this.sprites?.sprites?.[key] || this.sprites?.sprites?.arena_bg;
   }
 
   beginScene(arenaBg){
@@ -83,12 +108,24 @@ export class Renderer{
     } else {
       this.clear();
 
-      const bg = arenaBg || this.sprites?.sprites?.arena_bg;
+      // Background parallax scrolling
+      this._parallaxOffset += this._parallaxSpeed / 60;
+      if(this._parallaxOffset > this.w) this._parallaxOffset -= this.w;
+
+      const bg = arenaBg || this.getArenaBgImage();
       if(bg){
         c.save();
         c.imageSmoothingEnabled = true;
+
+        // Draw far background layer (slow parallax scroll)
+        const pOff = this._parallaxOffset * 0.3;
+        c.globalAlpha = 0.4;
+        c.drawImage(bg, -pOff, -4, this.w + 20, this.h + 8);
+        c.drawImage(bg, this.w - pOff, -4, this.w + 20, this.h + 8);
+
+        // Draw main background layer
         c.globalAlpha = 1;
-        c.drawImage(bg, 0,0, this.w, this.h);
+        c.drawImage(bg, 0, 0, this.w, this.h);
         c.restore();
       } else {
         const g = c.createLinearGradient(0,0,0,this.h);
@@ -674,6 +711,11 @@ export class Renderer{
     c.restore();
   }
 
+  _getAnimatedFrame(fighterId, state, attackKind, attackProgress){
+    if(!this.spriteAnimations) return null;
+    return this.spriteAnimations.getFrame(fighterId, state);
+  }
+
   drawFighter(f){
     const c=this.ctx;
     const now = performance.now();
@@ -722,7 +764,7 @@ export class Renderer{
     } else if (f.charging) {
       attackProgress = f.chargePct;
     }
-    const im = this.sprites?.get?.(fighterId, state, attackKind, attackProgress);
+    const im = this._getAnimatedFrame(fighterId, state, attackKind, attackProgress) || this.sprites?.get?.(fighterId, state, attackKind, attackProgress);
 
     const footX = f.x;
     const footY = f.y+110;

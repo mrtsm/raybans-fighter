@@ -1,59 +1,71 @@
-# Ray-Bans Fighter
+# ⚡ Ray-Bans Fighter
 
-A Mortal Kombat–inspired 1v1 fighting game designed for a 600×600 monocular HUD (Meta Ray-Ban Display) with EMG-style gesture mappings.
+**AAA-quality 2D fighting game for Meta display glasses.**
 
-## Run locally
+[▶ Play Now](https://mrtsm.github.io/raybans-fighter/)
 
-Just open `index.html` in a local web server (recommended):
+---
 
-```bash
-cd raybans-fighter
-npx serve .
-```
+## 🎮 Features
 
-Then visit the printed URL.
+- **4 Unique Fighters** — Blaze 🔥, Granite 🪨, Shade 🌑, Volt ⚡ — each with distinct moves, specials, and signature attacks
+- **Armband Input** — Designed for Meta display glasses with armband (arrows + L/R click)
+- **Daily Challenge Mode** — New modifier every day: Double Speed, One-Hit KO, Low Gravity, Mirror, Giant, Tiny, and more
+- **Win Streak System** — Track your streak, AI scales with difficulty, beat your best
+- **Arcade High Scores** — Classic 3-letter initials, CRT neon glow aesthetic, separate boards for Arcade and Daily
+- **Epic Intro Sequence** — Logo slam, character montage, dramatic SFX
+- **Hans Zimmer-Style Soundtrack** — ElevenLabs AI-generated orchestral music, fighter-specific themes
+- **AAA Juice** — Hit freeze, screen shake, hit sparks, combo counter, motion trails, KO cinematics
+- **Smart AI** — State machine with combo execution, adaptation, and streak-based difficulty scaling
+- **Cel-Shaded Anime Sprites** — 40+ poses across 4 fighters, with animation frames
+- **4 Arena Backgrounds** — Storm, Volcano, Shadow, Classic — rotated per fighter
+- **Background Parallax** — Subtle scrolling for depth
+- **60 FPS** — Smooth gameplay at native frame rate
+- **Progression System** — XP, mastery ranks (Bronze→Master), unlockable fighters and difficulties
+- **30+ Achievements** — First Blood, Untouchable, Comeback Kid, Perfectionist, and more
 
-## Controls (keyboard)
+## 🕹️ Controls
 
-- **Left / Right Arrow**: Dash left/right (dodge i-frames at dash start)
-- **Up Arrow**: Jump (air attack with Z)
-- **Down Arrow (hold)**: Stand block
-- **Down Arrow + (tap Crouch via quick swipe on touch)**: Crouch / crouch-block
-- **Z**: Light attack (one hit per press)
-- **X**: Heavy attack
-- **C**: Grab
-- **Hold Z (>=0.4s) then release**: Special (costs 30 Momentum)
-- **Hold Z (~1.0s) then release while Momentum=100**: Signature (costs all 100 Momentum)
+| Input | Action |
+|-------|--------|
+| ← → | Move |
+| ↑ | Jump |
+| ↓ | Block |
+| Left Click | Attack |
+| Right Click | Heavy / Special |
+| Hold Click | Charge Special |
 
-Touch fallback:
-- Tap = light
-- Two-finger tap = heavy
-- Three-finger tap = grab
-- Swipe left/right/up/down = dash/jump/crouch
-- Long press = special charge (release to cast)
+**Double-tap** ← or → to **dash**.
 
-## Audio generation (ElevenLabs)
+## 📱 Meta Display Glasses
 
-This project expects audio files at:
+Optimized for 600×600 viewport. Works with the Meta armband controller — directional input + left/right click maps perfectly to fight controls.
 
-- `assets/music/*.mp3`
-- `assets/sfx/*.mp3`
-- `assets/voices/*.mp3`
+## 🏆 Daily Challenge
 
-Generate them with:
+Every day brings a new modifier:
+- ⚡ Double Speed — Everything at 2×
+- 💀 One-Hit KO — One hit kills
+- 🌙 Low Gravity — Float like a butterfly
+- 🪞 Mirror Mode — Same fighter matchup
+- 🦖 Giant Mode — Supersized fighters
+- 🐜 Tiny Mode — Miniature mayhem
+- 🔓 No Block — Pure offense
+- ♾️ Infinite Specials — No cost specials
+- 💎 Glass Cannon — 2× damage, half HP
+- 🚀 Momentum Rush — 3× momentum gain
+- 🌋 Earthquake — Periodic stuns
+- 🥊 Iron Fist — Heavy hits harder, recovers slower
 
-```bash
-export ELEVENLABS_API_KEY=... 
-./generate-audio.sh
-```
+## 🔧 Tech
 
-You can override voice IDs:
+- Vanilla JavaScript — no frameworks, no build tools
+- Canvas 2D rendering at 600×600
+- Web Audio API with dynamic music + SFX
+- localStorage persistence for scores, streaks, progression
+- Web Gamepad API support
+- AI-generated sprites (Imagine) + music (ElevenLabs)
 
-```bash
-export VOICE_BLAZE=... VOICE_GRANITE=... VOICE_SHADE=... VOICE_VOLT=...
-./generate-audio.sh
-```
+---
 
-## Save data
-
-Progression, XP, mastery, highscores, achievements, and daily challenge state are stored in `localStorage` under `raybans_fighter_save_v1`.
+Built with ❤️ for the Meta display glasses ecosystem.

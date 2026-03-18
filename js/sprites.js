@@ -122,11 +122,25 @@ export class SpriteManager {
   constructor() {
     this.sprites = {};
     this.loaded = false;
+    this._animT = 0;
+  }
+  // Tick animation timer
+  tick(dt) {
+    this._animT += dt;
   }
   async loadAll(onProgress) {
     const fighters = ['blaze','granite','shade','volt'];
     const poses = ['idle','light','heavy','block','jump','crouch','hitstun','ko','special','victory'];
-    const total = fighters.length * poses.length + 2;
+    // Animation frames (optional — only loaded if they exist)
+    const animFrames = [
+      'idle_2','idle_3',
+      'light_windup','light_followthrough',
+      'heavy_windup','heavy_followthrough',
+      'special_windup','special_followthrough'
+    ];
+    // Arena backgrounds
+    const bgKeys = ['arena_bg','arena_storm','arena_volcano','arena_shadow','title_bg'];
+    const total = fighters.length * (poses.length + animFrames.length) + bgKeys.length;
     let done = 0;
     const bust = `?v=${Date.now()}`;
     const load = (src, removeWhite=false) => new Promise((res) => {
@@ -141,40 +155,227 @@ export class SpriteManager {
           res(img);
         }
       };
-      img.onerror = (e) => { console.warn('Sprite FAILED:', src, e); done++; onProgress?.(done/total); res(null); };
+      img.onerror = (e) => { done++; onProgress?.(done/total); res(null); };
       img.src = src + bust;
     });
     console.log('[Sprites] Loading', total, 'assets...');
     for (const f of fighters) {
       this.sprites[f] = {};
+      // Load base poses
       for (const p of poses) {
-        // Fighter sprites need white background removal
         this.sprites[f][p] = await load(`assets/sprites/${f}/${p}.png`, true);
       }
+      // Load animation frames (optional, don't fail if missing)
+      for (const af of animFrames) {
+        this.sprites[f][af] = await load(`assets/sprites/${f}/${af}.png`, true);
+      }
     }
-    // Backgrounds don't need white removal
-    this.sprites.arena_bg = await load('assets/sprites/arena_bg.png', false);
-    this.sprites.title_bg = await load('assets/sprites/title_bg.png', false);
+    // Load all backgrounds (no white removal)
+    for (const bgKey of bgKeys) {
+      this.sprites[bgKey] = await load(`assets/sprites/${bgKey}.png`, false);
+    }
     const ok = Object.entries(this.sprites).filter(([k,v]) => typeof v === 'object' && v !== null && !(v instanceof HTMLImageElement) && !(v instanceof HTMLCanvasElement)).map(([k,v]) => [k, Object.values(v).filter(Boolean).length]);
-    console.log('[Sprites] Loaded fighters:', ok, 'bg:', !!this.sprites.arena_bg);
+    console.log('[Sprites] Loaded fighters:', ok, 'backgrounds:', bgKeys.filter(k => this.sprites[k]).length);
     this.loaded = true;
   }
-  get(fighterId, state, attackKind) {
+  get(fighterId, state, attackKind, attackProgress) {
     const f = this.sprites[fighterId];
     if (!f) return null;
+
+    // Animation frame selection based on attack progress
+    if (state === 'attacking' && attackProgress !== undefined) {
+      if (attackKind === 'heavy') {
+        if(attackProgress < 0.3 && f.heavy_windup) return f.heavy_windup;
+        if(attackProgress > 0.6 && f.heavy_followthrough) return f.heavy_followthrough;
+        return f.heavy;
+      }
+      if (attackKind === 'light') {
+        if(attackProgress < 0.3 && f.light_windup) return f.light_windup;
+        if(attackProgress > 0.6 && f.light_followthrough) return f.light_followthrough;
+        return f.light;
+      }
+      if (attackKind === 'air') return f.jump;
+      if (attackKind === 'low') return f.crouch;
+      return f.light;
+    }
+
     if (state === 'attacking') {
       if (attackKind === 'heavy') return f.heavy;
       if (attackKind === 'air') return f.jump;
       if (attackKind === 'low') return f.crouch;
       return f.light;
     }
+
+    // Idle breathing animation (cycle between idle frames)
+    if (state === 'idle') {
+      const frames = [f.idle, f.idle_2, f.idle_3].filter(Boolean);
+      if(frames.length > 1){
+        const frameIdx = Math.floor(this._animT * 2) % frames.length;
+        return frames[frameIdx];
+      }
+      return f.idle;
+    }
+
+    // Charging uses special animation frames
+    if (state === 'charging') {
+      if(attackProgress !== undefined){
+        if(attackProgress < 0.5 && f.special_windup) return f.special_windup;
+        if(attackProgress >= 0.5 && f.special_followthrough) return f.special_followthrough;
+      }
+      return f.special;
+    }
+
     if (state === 'blocking') return f.block;
     if (state === 'jumping') return f.jump;
     if (state === 'crouching') return f.crouch;
     if (state === 'hitstun') return f.hitstun;
     if (state === 'ko') return f.ko;
     if (state === 'victory') return f.victory;
-    if (state === 'charging') return f.special;
     return f.idle;
+  }
+}
+
+/* ── SpriteAnimation: per-fighter animated frames ── */
+
+export class SpriteAnimation {
+  constructor(fighterId, basePath){
+    this.fighterId = fighterId;
+    this.basePath = basePath; // e.g. 'assets/sprites/blaze'
+    this.frames = {};         // { idle: [img,img,img], light: [windup,main,followthrough], ... }
+    this.idleIdx = 0;
+    this.idleTimer = 0;
+    this.idleCycleDur = 200;  // ms per idle frame
+    this.attackPhase = null;   // null | 'windup' | 'main' | 'followthrough'
+    this.attackTimer = 0;
+    this.attackPhaseDur = 100; // ms per attack phase
+    this.attackType = null;    // 'light' | 'heavy' | 'special'
+    this._loaded = false;
+  }
+
+  async load(){
+    const loadImg = (src) => new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+
+    const bp = this.basePath;
+
+    // Load idle frames (idle.png is frame 0, idle_2.png, idle_3.png)
+    const idleFrames = await Promise.all([
+      loadImg(`${bp}/idle.png`),
+      loadImg(`${bp}/idle_2.png`),
+      loadImg(`${bp}/idle_3.png`),
+    ]);
+    this.frames.idle = idleFrames.filter(Boolean);
+
+    // Load attack animation frames for each attack type
+    for(const atk of ['light', 'heavy', 'special']){
+      const [windup, main, followthrough] = await Promise.all([
+        loadImg(`${bp}/${atk}_windup.png`),
+        loadImg(`${bp}/${atk}.png`),
+        loadImg(`${bp}/${atk}_followthrough.png`),
+      ]);
+      this.frames[atk] = [windup, main, followthrough].map(f => f || null);
+    }
+
+    this._loaded = true;
+  }
+
+  /** Call every frame with dt in seconds */
+  tick(dtMs){
+    if(!this._loaded) return;
+
+    // Tick idle animation
+    this.idleTimer += dtMs;
+    if(this.idleTimer >= this.idleCycleDur){
+      this.idleTimer -= this.idleCycleDur;
+      this.idleIdx = (this.idleIdx + 1) % (this.frames.idle?.length || 1);
+    }
+
+    // Tick attack animation
+    if(this.attackPhase){
+      this.attackTimer += dtMs;
+      if(this.attackTimer >= this.attackPhaseDur){
+        this.attackTimer -= this.attackPhaseDur;
+        if(this.attackPhase === 'windup') this.attackPhase = 'main';
+        else if(this.attackPhase === 'main') this.attackPhase = 'followthrough';
+        else { this.attackPhase = null; this.attackType = null; }
+      }
+    }
+  }
+
+  /** Trigger an attack animation */
+  triggerAttack(type){
+    if(['light','heavy','special'].includes(type)){
+      this.attackType = type;
+      this.attackPhase = 'windup';
+      this.attackTimer = 0;
+    }
+  }
+
+  /** Get the current frame image for the fighter's state */
+  getFrame(state){
+    if(!this._loaded) return null;
+
+    // If we're in an attack animation, return the attack frame
+    if(this.attackPhase && this.attackType){
+      const atkFrames = this.frames[this.attackType];
+      if(atkFrames){
+        const idx = this.attackPhase === 'windup' ? 0 : this.attackPhase === 'main' ? 1 : 2;
+        if(atkFrames[idx]) return atkFrames[idx];
+      }
+    }
+
+    // For idle state, cycle through idle frames
+    if(state === 'idle' || state === 'walk'){
+      const idles = this.frames.idle;
+      if(idles && idles.length > 0){
+        return idles[this.idleIdx % idles.length];
+      }
+    }
+
+    return null; // fallback to static sprite
+  }
+}
+
+/* ── SpriteAnimationManager: manages all fighter animations ── */
+
+export class SpriteAnimationManager {
+  constructor(){
+    this.animations = {}; // fighterId → SpriteAnimation
+  }
+
+  async init(fighters){
+    const promises = [];
+    for(const id of fighters){
+      const anim = new SpriteAnimation(id, `assets/sprites/${id}`);
+      this.animations[id] = anim;
+      promises.push(anim.load());
+    }
+    await Promise.all(promises);
+  }
+
+  get(fighterId){
+    return this.animations[fighterId] || null;
+  }
+
+  tick(dtMs){
+    for(const anim of Object.values(this.animations)){
+      anim.tick(dtMs);
+    }
+  }
+
+  triggerAttack(fighterId, type){
+    const anim = this.animations[fighterId];
+    if(anim) anim.triggerAttack(type);
+  }
+
+  /** Get current frame for a fighter given their state */
+  getFrame(fighterId, state){
+    const anim = this.animations[fighterId];
+    if(anim) return anim.getFrame(state);
+    return null;
   }
 }
