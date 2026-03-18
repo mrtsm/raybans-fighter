@@ -7,7 +7,7 @@ export class Fighter {
     this.glow = def.colors.glow;
 
     this.side = side; // -1 left, +1 right
-    this.facing = side===-1 ? -1 : 1; // -1 = no flip (faces right), +1 = flip (faces left)
+    this.facing = side===-1 ? 1 : -1; // ALL sprites face LEFT. P1 (left side): flip to face right. P2 (right side): no flip, already faces left.
 
     this.maxHp = def.health;
     this.hp = this.maxHp;
@@ -84,7 +84,7 @@ export class Fighter {
 
   setFacingTo(opp){
     if(this.attack || this.hitstunF>0 || this.charging || this.state==='dash') return;
-    this.facing = (opp.x>=this.x) ? -1 : 1; // -1 = face right (no flip), 1 = face left (flip)
+    this.facing = (opp.x>=this.x) ? 1 : -1; // Sprites face LEFT. If opp is to the right, flip (facing=1). If opp is to the left, no flip (facing=-1).
   }
 
   isVulnerable(){
