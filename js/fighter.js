@@ -1,20 +1,27 @@
+// ============================================================
+//  fighter.js — Simple state-machine fighter
+//  States: idle, walk, jump, light, heavy, hit, ko, victory,
+//          block, crouch, dash, special_charge
+//  Every click → attack. No stuck states.
+// ============================================================
+
 export class Fighter {
-  constructor(def, side){
+  constructor(def, side) {
     this.def = def;
     this.id = def.id;
     this.name = def.name;
     this.color = def.colors.core;
     this.glow = def.colors.glow;
 
-    this.side = side; // -1 left, +1 right
-    this.facing = side===-1 ? 1 : -1; // P1 (left): flip (1) to face right. P2 (right): no flip (-1), faces left.
+    this.side = side;                       // -1 = left (P1), +1 = right (P2)
+    this.facing = side === -1 ? 1 : -1;    // P1 faces right (1=flip), P2 faces left (-1=no flip)
 
     this.maxHp = def.health;
     this.hp = this.maxHp;
     this.momentum = 0;
 
-    this.x = side===-1 ? 160 : 440;
-    this.y = 380; // must match arena.floorY
+    this.x = side === -1 ? 180 : 420;
+    this.y = 380;                           // arena.floorY
     this.w = 90;
     this.h = 200;
 
@@ -24,184 +31,203 @@ export class Fighter {
 
     this.state = 'idle';
     this.stateT = 0;
+
+    // Combat state
     this.hitstunF = 0;
-    this.blocking = 'none'; // none|stand|crouch
+    this.blocking = 'none';     // 'none' | 'stand' | 'crouch'
     this.crouching = false;
     this.crouchT = 0;
 
-    this.dashIframesF = 0;
-    this.dashArmorHits = 0;
-    this.shieldT = 0;
-    this.shieldHits = 0;
-
-    this.attack = null;
+    this.attack = null;         // null | { kind, startupF, activeF, recoveryF, dmg, range, type, hitstunF, ... }
     this.attackF = 0;
     this.attackHasHit = false;
 
-    // Combo system: cancel chains
-    this.comboRoute = []; // track chain: ['light','light','heavy']
+    // Combo route tracking (for scoring/combat.js compat)
+    this.comboRoute = [];
     this.maxComboLength = 3;
 
-    // Guard break system
+    // Guard break (combat.js compat)
     this.consecutiveBlocks = 0;
     this.guardBroken = false;
     this.guardBrokenT = 0;
 
+    // Charge (renderer compat)
+    this.charging = false;
     this.chargeT = 0;
     this.chargePct = 0;
-    this.charging = false;
 
+    // Dash (renderer compat)
+    this.dashIframesF = 0;
+    this.dashArmorHits = 0;
+
+    // Shield (combat.js compat)
+    this.shieldT = 0;
+    this.shieldHits = 0;
+
+    // Visual
     this.lastStand = false;
+    this._renderScale = def.spriteScale || 1.0;
+    this.scaleMul = 1.0;
+    this.gravMul = 1.0;
+    this._blockDisabled = false;
+    this._invisT = 0;
 
-    // Walk speed (px/s)
+    // Walk speed (px/s from fighter definition)
     this.walkSpeed = def.walkSpeed || 100;
 
-    // Daily mod flags
-    this._blockDisabled = false;
-    this._renderScale = def.spriteScale || 1.0;
-
-    // Scale modifier (for giant/tiny daily challenge)
-    this.scaleMul = 1.0;
-
-    // Gravity modifier (for low gravity daily challenge)
-    this.gravMul = 1.0;
-
-    // stats
-    this.stats = { antiAirHeavies:0, whiffPunishes:0, grabDamage:0, lightDamage:0, heavyDamage:0, specials:0, sigs:0, blocks:0, perfectDodges:0 };
+    // Stats
+    this.stats = {
+      antiAirHeavies: 0, whiffPunishes: 0, grabDamage: 0,
+      lightDamage: 0, heavyDamage: 0, specials: 0, sigs: 0,
+      blocks: 0, perfectDodges: 0,
+    };
 
     this._recentActions = [];
-    this._invisT = 0;
   }
 
-  get hpPct(){ return Math.max(0, this.hp/this.maxHp); }
+  // ── Properties (renderer reads these) ──
 
-  pushAction(a){
-    this._recentActions.push({t:performance.now(), a});
-    if(this._recentActions.length>20) this._recentActions.shift();
+  get hpPct() { return Math.max(0, this.hp / this.maxHp); }
+
+  // ── Action tracking (combat.js compat) ──
+
+  pushAction(a) {
+    this._recentActions.push({ t: performance.now(), a });
+    if (this._recentActions.length > 20) this._recentActions.shift();
   }
 
-  recentActions(){ return this._recentActions.map(x=>x.a); }
+  recentActions() { return this._recentActions.map(x => x.a); }
 
-  setFacingTo(opp){
-    if(this.attack || this.hitstunF>0 || this.charging || this.state==='dash') return;
-    this.facing = (opp.x>=this.x) ? -1 : 1; // Opp to right: no flip (-1). Opp to left: flip (1).
+  // ── Facing ──
+
+  setFacingTo(opp) {
+    // Don't change facing during attack or hitstun
+    if (this.attack || this.hitstunF > 0) return;
+    // Sprites face LEFT. facing=1 → flip to face right. facing=-1 → no flip, face left.
+    this.facing = (opp.x > this.x) ? 1 : -1;
   }
 
-  isVulnerable(){
-    return this.hitstunF<=0 && this.state !== 'ko';
+  // ── State queries ──
+
+  isVulnerable() {
+    return this.hitstunF <= 0 && this.state !== 'ko';
   }
 
-  canAct(){
-    return this.hitstunF<=0 && !this.attack && !this.charging && this.state!=='ko' && this.state!=='victory' && !this.guardBroken;
+  canAct() {
+    return this.hitstunF <= 0
+      && !this.attack
+      && !this.charging
+      && this.state !== 'ko'
+      && this.state !== 'victory'
+      && !this.guardBroken;
   }
 
-  // Walk: smooth continuous movement
-  walk(dir){
-    if(!this.canAct() && this.state !== 'idle') return;
-    if(this.hitstunF > 0 || this.state === 'ko' || this.state === 'victory') return;
-    // Don't walk during attacks or charging
-    if(this.attack || this.charging) return;
-    this.x += dir * this.walkSpeed * (1/60);
-    if(this.state === 'idle' || this.state === 'walk') this.state = 'walk';
+  // ── Movement ──
+
+  walk(dir) {
+    if (!this.canAct()) return;
+    this.x += dir * this.walkSpeed * (1 / 60);
+    if (this.state === 'idle' || this.state === 'walk') this.state = 'walk';
   }
 
-  startDash(dir, iframesF){
-    this.state='dash';
-    this.stateT=0;
-    this.vx = dir * this.def.dashPx * 60/6; // cover distance in ~6 frames at 60fps
-    this.dashIframesF = iframesF;
-    if(this.def.armorDash){
-      this.dashArmorHits = this.def.armorDash.hits;
-    } else this.dashArmorHits = 0;
+  startDash(dir, iframesF) {
+    if (!this.canAct()) return;
+    this.state = 'dash';
+    this.stateT = 0;
+    this.vx = dir * (this.def.dashPx || 90) * 10;
+    this.dashIframesF = iframesF || 6;
+    this.dashArmorHits = this.def.armorDash?.hits || 0;
   }
 
-  startJump(){
-    if(!this.onGround) return;
-    this.state='jump';
-    this.stateT=0;
-    this.onGround=false;
+  startJump() {
+    if (!this.onGround) return;
+    if (this.state === 'ko' || this.state === 'victory') return;
+    this.state = 'jump';
+    this.stateT = 0;
+    this.onGround = false;
     this.vy = -520;
   }
 
-  startCrouch(){
+  startCrouch() {
     this.crouching = true;
     this.crouchT = 0.25;
-    this.state='crouch';
-    this.stateT=0;
+    this.state = 'crouch';
+    this.stateT = 0;
   }
 
-  startBlock(mode){
-    if(this._blockDisabled) return;
+  // ── Blocking ──
+
+  startBlock(mode) {
+    if (this._blockDisabled) return;
     this.blocking = mode;
     this.state = 'block';
   }
 
-  stopBlock(){
+  stopBlock() {
     this.blocking = 'none';
-    if(this.state==='block') this.state='idle';
+    if (this.state === 'block') this.state = 'idle';
   }
 
-  startCharge(){
-    if(this.charging || this.attack || this.hitstunF>0) return;
+  // ── Charging (special charge for compatibility) ──
+
+  startCharge() {
+    if (this.charging || this.attack || this.hitstunF > 0) return;
     this.charging = true;
     this.chargeT = 0;
     this.chargePct = 0;
-    this.state='special_charge';
+    this.state = 'special_charge';
   }
 
-  releaseCharge(){
-    const t=this.chargeT;
-    this.charging=false;
-    this.chargeT=0;
-    this.chargePct=0;
-    if(this.state==='special_charge') this.state='idle';
+  releaseCharge() {
+    const t = this.chargeT;
+    this.charging = false;
+    this.chargeT = 0;
+    this.chargePct = 0;
+    if (this.state === 'special_charge') this.state = 'idle';
     return t;
   }
 
-  // Enhanced startAttack with combo cancel system
-  startAttack(kind, variant={}){
-    // Force stop blocking when player tries to attack
+  // ── Attack ──
+
+  startAttack(kind, variant = {}) {
+    // Force stop blocking/crouching when attacking
     this.blocking = 'none';
     this.crouching = false;
-    // Allow cancel: light → heavy, light → light (2-hit), light → special
-    if(this.attack){
+
+    // Allow combo cancel: if currently attacking AND hit connected, allow chain
+    if (this.attack) {
       const curKind = this.attack.kind;
       const aw = this.attackWindow();
-
-      // Cancel window: during active or early recovery frames of current attack
       const canCancel = aw.active || (aw.recovery && this.attackF <= this.attack.startupF + this.attack.activeF + 3);
 
-      if(canCancel && this.attackHasHit) {
-        // Allowed cancel routes
+      if (canCancel && this.attackHasHit) {
         const allowed =
           (curKind === 'light' && (kind === 'heavy' || kind === 'light' || kind === 'low')) ||
           (curKind === 'light' && kind === 'special') ||
           (curKind === 'low' && kind === 'heavy');
 
-        if(allowed && this.comboRoute.length < this.maxComboLength) {
-          // Cancel into next move
+        if (allowed && this.comboRoute.length < this.maxComboLength) {
           this.attack = null;
           this.attackF = 0;
           this.attackHasHit = false;
-          // Fall through to start new attack below
+          // Fall through to start new attack
         } else {
           return false;
         }
       } else {
-        return false;
+        return false; // Can't start attack while one is playing
       }
     }
 
-    if(this.hitstunF>0 || this.state==='ko' || this.state==='victory' || this.guardBroken) return false;
+    if (this.hitstunF > 0 || this.state === 'ko' || this.state === 'victory' || this.guardBroken) return false;
 
     let m;
-    if(kind==='light') m=this.def.moves.light;
-    if(kind==='heavy') m=this.def.moves.heavy;
-    if(kind==='low') m=this.def.moves.low;
-    if(kind==='air') m=this.def.moves.air;
-    if(kind==='grab') m=this.def.moves.grab;
-
-    if(!m) return false;
+    if (kind === 'light') m = this.def.moves.light;
+    if (kind === 'heavy') m = this.def.moves.heavy;
+    if (kind === 'low')   m = this.def.moves.low;
+    if (kind === 'air')   m = this.def.moves.air;
+    if (kind === 'grab')  m = this.def.moves.grab;
+    if (!m) return false;
 
     this.attack = {
       kind,
@@ -210,7 +236,10 @@ export class Fighter {
       recoveryF: m.recovery,
       dmg: m.dmg,
       type: m.type,
-      range: (kind==='grab'?40 : (kind==='heavy'?this.def.range.heavy : (kind==='light'?this.def.range.light : this.def.range.low))),
+      range: kind === 'grab' ? 40
+        : kind === 'heavy' ? this.def.range.heavy
+        : kind === 'light' ? this.def.range.light
+        : this.def.range.low,
       hitstunF: m.hitstunF || (kind === 'heavy' ? 12 : kind === 'light' ? 6 : kind === 'low' ? 6 : kind === 'air' ? 8 : 9),
       ...m,
       ...variant,
@@ -219,187 +248,191 @@ export class Fighter {
     this.attackHasHit = false;
     this.comboRoute.push(kind);
 
-    this.state = kind==='grab'?'grab':(kind==='heavy'?'heavy':'light');
+    this.state = kind === 'grab' ? 'grab' : (kind === 'heavy' ? 'heavy' : 'light');
     this.stateT = 0;
     return true;
   }
 
-  takeHit({ dmg, type, from, isChip=false }){
-    if(this.state==='ko') return { hit:false };
+  // ── Take hit ──
 
-    // dash i-frames
-    if(this.dashIframesF>0){
+  takeHit({ dmg, type, from, isChip = false }) {
+    if (this.state === 'ko') return { hit: false };
+
+    // Dash i-frames
+    if (this.dashIframesF > 0) {
       this.stats.perfectDodges++;
-      return { hit:false, dodged:true, perfect:true };
+      return { hit: false, dodged: true, perfect: true };
     }
 
-    // dash armor
-    if(this.state==='dash' && this.dashArmorHits>0){
+    // Dash armor
+    if (this.state === 'dash' && this.dashArmorHits > 0) {
       this.dashArmorHits--;
-      const applied = Math.ceil(dmg*0.5);
+      const applied = Math.ceil(dmg * 0.5);
       this.hp = Math.max(1, this.hp - applied);
-      return { hit:true, armored:true, dmg:applied };
+      return { hit: true, armored: true, dmg: applied };
     }
 
-    // shield armor
-    if(this.shieldT>0 && this.shieldHits>0){
+    // Shield armor
+    if (this.shieldT > 0 && this.shieldHits > 0) {
       this.shieldHits--;
-      const applied = Math.ceil(dmg*0.5);
+      const applied = Math.ceil(dmg * 0.5);
       this.hp = Math.max(1, this.hp - applied);
-      return { hit:true, armored:true, dmg:applied };
+      return { hit: true, armored: true, dmg: applied };
     }
 
     // Guard broken = can't block
-    if(this.guardBroken){
+    if (this.guardBroken) {
       return this._applyHit(dmg, type, from);
     }
 
-    // blocking
-    if(this.blocking!=='none'){
+    // Blocking
+    if (this.blocking !== 'none') {
       let blocks = false;
-      if(this.blocking==='stand' && (type==='mid' || type==='high' || type==='overhead')) blocks=true;
-      if(this.blocking==='crouch' && type==='low') blocks=true;
-      if(blocks){
+      if (this.blocking === 'stand' && (type === 'mid' || type === 'high' || type === 'overhead')) blocks = true;
+      if (this.blocking === 'crouch' && type === 'low') blocks = true;
+      if (blocks) {
         this.stats.blocks++;
         this.consecutiveBlocks++;
-
         // Guard break after 3 consecutive blocks
-        if(this.consecutiveBlocks >= 3){
+        if (this.consecutiveBlocks >= 3) {
           this.guardBroken = true;
-          this.guardBrokenT = 0.5; // 0.5s stun
+          this.guardBrokenT = 0.5;
           this.blocking = 'none';
           this.state = 'hit';
           this.consecutiveBlocks = 0;
-          return { hit:false, guardBroken:true };
+          return { hit: false, guardBroken: true };
         }
-
-        const chip = Math.ceil(dmg*0.25);
-        // Chip can kill at ≤5% HP
+        const chip = Math.ceil(dmg * 0.25);
         const canChipKill = this.hpPct <= 0.05;
-        const applied = canChipKill ? chip : Math.min(chip, Math.max(0, this.hp-1));
+        const applied = canChipKill ? chip : Math.min(chip, Math.max(0, this.hp - 1));
         this.hp -= applied;
-        return { hit:false, blocked:true, chip:applied };
+        return { hit: false, blocked: true, chip: applied };
       }
     }
 
     return this._applyHit(dmg, type, from);
   }
 
-  _applyHit(dmg, type, from){
+  _applyHit(dmg, type, from) {
     this.hp = Math.max(0, this.hp - dmg);
-    // Hitstun is set by combat.js based on the attacking move
-    this.hitstunF = 9; // default, overridden by combat
-    this.state='hit';
-    this.attack=null;
-    this.charging=false;
-    this.chargePct=0;
-    this.comboRoute = []; // reset combo chain
-    this.consecutiveBlocks = 0; // reset guard break counter on hit
-    return { hit:true, dmg };
+    this.hitstunF = 9; // default, combat.js overrides per-move
+    this.state = 'hit';
+    this.attack = null;
+    this.charging = false;
+    this.chargePct = 0;
+    this.comboRoute = [];
+    this.consecutiveBlocks = 0;
+    return { hit: true, dmg };
   }
 
-  update(dt, arena, gravMul){
-    // last stand state
-    this.lastStand = this.hpPct>0 && this.hpPct<0.2;
+  // ── Per-frame update ──
+
+  update(dt, arena, gravMul) {
+    // Last stand visual
+    this.lastStand = this.hpPct > 0 && this.hpPct < 0.2;
 
     // Guard broken timer
-    if(this.guardBroken){
+    if (this.guardBroken) {
       this.guardBrokenT -= dt;
-      if(this.guardBrokenT <= 0){
+      if (this.guardBrokenT <= 0) {
         this.guardBroken = false;
         this.guardBrokenT = 0;
-        if(this.state === 'hit') this.state = 'idle';
+        if (this.state === 'hit') this.state = 'idle';
       }
     }
 
-    // timers
-    if(this.hitstunF>0){
+    // Hitstun countdown
+    if (this.hitstunF > 0) {
       this.hitstunF--;
-      if(this.hitstunF<=0 && this.state==='hit') this.state='idle';
+      if (this.hitstunF <= 0 && this.state === 'hit') this.state = 'idle';
     }
 
-    if(this.dashIframesF>0) this.dashIframesF--;
+    // Dash i-frames countdown
+    if (this.dashIframesF > 0) this.dashIframesF--;
 
-    if(this.crouchT>0){
-      this.crouchT-=dt;
-      if(this.crouchT<=0){
-        this.crouching=false;
-        if(this.state==='crouch') this.state='idle';
+    // Crouch timer
+    if (this.crouchT > 0) {
+      this.crouchT -= dt;
+      if (this.crouchT <= 0) {
+        this.crouching = false;
+        if (this.state === 'crouch') this.state = 'idle';
       }
     }
 
-    if(this.shieldT>0){
-      this.shieldT-=dt;
-      if(this.shieldT<=0){ this.shieldT=0; this.shieldHits=0; }
+    // Shield timer
+    if (this.shieldT > 0) {
+      this.shieldT -= dt;
+      if (this.shieldT <= 0) { this.shieldT = 0; this.shieldHits = 0; }
     }
 
-    // charge
-    if(this.charging){
+    // Charge timer
+    if (this.charging) {
       this.chargeT += dt;
-      this.chargePct = Math.min(1, this.chargeT/1.0);
+      this.chargePct = Math.min(1, this.chargeT / 1.0);
     }
 
-    // attack frame count
-    if(this.attack){
+    // Attack frame progression
+    if (this.attack) {
       this.attackF++;
       const totalF = this.attack.startupF + this.attack.activeF + this.attack.recoveryF;
-      if(this.attackF >= totalF){
+      if (this.attackF >= totalF) {
         this.attack = null;
-        this.comboRoute = []; // reset combo chain on attack end
-        this.state='idle';
+        this.comboRoute = [];
+        this.state = 'idle';
       }
     }
 
-    // Reset walk state
-    if(this.state === 'walk' && !this.attack && this.hitstunF <= 0) {
-      // Will be set back to 'walk' by walk() if still moving
+    // Reset walk to idle (walk() will set it back next frame if still held)
+    if (this.state === 'walk' && !this.attack && this.hitstunF <= 0) {
       this.state = 'idle';
     }
 
-    // movement physics
+    // Gravity
     const g = 1500 * (gravMul || 1);
-    if(!this.onGround){
-      this.vy += g*dt;
-      this.y += this.vy*dt;
-      if(this.y >= arena.floorY){
+    if (!this.onGround) {
+      this.vy += g * dt;
+      this.y += this.vy * dt;
+      if (this.y >= arena.floorY) {
         this.y = arena.floorY;
         this.vy = 0;
         this.onGround = true;
-        if(this.state==='jump') this.state='idle';
+        if (this.state === 'jump') this.state = 'idle';
       }
     }
 
-    // velocity-based movement with smoother decay
-    this.x += this.vx*dt;
-    this.vx *= 0.85; // smoother at 60fps
-    if(Math.abs(this.vx)<10) this.vx=0;
-    if(this.state==='dash' && this.vx===0) this.state='idle';
+    // Velocity movement + decay
+    this.x += this.vx * dt;
+    this.vx *= 0.85;
+    if (Math.abs(this.vx) < 10) this.vx = 0;
+    if (this.state === 'dash' && this.vx === 0) this.state = 'idle';
 
-    // walls
-    const minX = arena.leftWall;
-    const maxX = arena.rightWall;
-    this.x = Math.max(minX, Math.min(maxX, this.x));
+    // Arena walls
+    this.x = Math.max(arena.leftWall, Math.min(arena.rightWall, this.x));
 
     this.stateT += dt;
 
-    if(this.hp<=0 && this.state!=='ko'){
-      this.state='ko';
-      this.vx=0; this.vy=0;
+    // KO check
+    if (this.hp <= 0 && this.state !== 'ko') {
+      this.state = 'ko';
+      this.vx = 0;
+      this.vy = 0;
     }
   }
 
-  attackWindow(){
-    if(!this.attack) return { active:false };
-    const a=this.attack;
-    const f=this.attackF;
-    const activeStart=a.startupF;
-    const activeEnd=a.startupF + a.activeF;
+  // ── Attack window (used by combat.js) ──
+
+  attackWindow() {
+    if (!this.attack) return { active: false };
+    const a = this.attack;
+    const f = this.attackF;
+    const activeStart = a.startupF;
+    const activeEnd = a.startupF + a.activeF;
     return {
-      active: f>=activeStart && f<activeEnd,
-      startup: f<activeStart,
-      recovery: f>=activeEnd,
-      kind:a.kind,
-      a
+      active: f >= activeStart && f < activeEnd,
+      startup: f < activeStart,
+      recovery: f >= activeEnd,
+      kind: a.kind,
+      a,
     };
   }
 }
