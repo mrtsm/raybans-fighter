@@ -73,14 +73,14 @@ export const strokeRoundRect = (ctx, x,y,w,h,r, stroke, lw=2)=>{
   ctx.restore();
 };
 
-export const neonText = (ctx, text, x,y, { color='#7df9ff', glow=null, align='center', size=24, weight=800 }={})=>{
+export const neonText = (ctx, text, x,y, { color='#7df9ff', glow=null, align='center', size=24, weight=800, blur=16, stroke=true }={})=>{
   ctx.save();
   ctx.textAlign = align;
   ctx.textBaseline = 'middle';
   ctx.fillStyle = color;
   ctx.font = `${weight} ${size}px Orbitron, system-ui, sans-serif`;
   ctx.shadowColor = glow || color;
-  ctx.shadowBlur = 16;
+  ctx.shadowBlur = blur;
   ctx.fillText(text, x,y);
   ctx.shadowBlur = 0;
   ctx.restore();
