@@ -212,11 +212,8 @@ export class SpriteManager {
       img.onload = () => {
         done++;
         onProgress?.(done/total);
-        if(removeWhite){
-          res(removeBackground(img));
-        } else {
-          res(img);
-        }
+        // Sprites now have proper PNG transparency from rembg — no JS bg removal needed
+        res(img);
       };
       img.onerror = (e) => { done++; onProgress?.(done/total); res(null); };
       img.src = src + bust;
