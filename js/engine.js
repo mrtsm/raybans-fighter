@@ -41,6 +41,21 @@ export function boot(canvas){
 
   let loadProgress = 0;
   let assetsReady = false;
+  let gameStarted = false;
+
+  // Click/tap to start — this also unlocks audio
+  const startGame = () => {
+    if(!assetsReady || gameStarted) return;
+    gameStarted = true;
+    audio.playMusic('music_menu');
+    game.setMode('splash');
+    canvas.removeEventListener('click', startGame);
+    canvas.removeEventListener('pointerdown', startGame);
+    window.removeEventListener('keydown', startGame);
+  };
+  canvas.addEventListener('click', startGame);
+  canvas.addEventListener('pointerdown', startGame);
+  window.addEventListener('keydown', startGame);
 
   (async () => {
     // Start audio pre-fetch + gesture listener setup (non-blocking)
@@ -53,8 +68,7 @@ export function boot(canvas){
       await sprites.loadAll((p) => { loadProgress = p; });
     } catch(e) { console.error('Sprite load error:', e); }
     assetsReady = true;
-    // Start with splash intro, NOT menu directly
-    game.setMode('splash');
+    // Don't start game yet — wait for user click (which unlocks audio)
   })();
 
   // Pause/resume audio when tab/app is hidden/visible
@@ -155,10 +169,20 @@ export function boot(canvas){
       ctx.shadowBlur = 0;
     }
 
-    // Loading percentage
-    ctx.font = '600 14px Orbitron, system-ui';
-    ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.2 * Math.sin(loadT * 4)})`;
-    ctx.fillText(`LOADING ${Math.round(loadProgress * 100)}%`, 300, 530);
+    // Loading percentage or "CLICK TO START"
+    if(assetsReady && !gameStarted){
+      const pulse = 0.6 + 0.4 * Math.sin(loadT * 4);
+      ctx.font = '900 22px Orbitron, system-ui';
+      ctx.fillStyle = `rgba(255,255,255,${pulse})`;
+      ctx.shadowColor = `rgba(120,240,255,${pulse * 0.8})`;
+      ctx.shadowBlur = 20;
+      ctx.fillText('CLICK TO START', 300, 520);
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.font = '600 14px Orbitron, system-ui';
+      ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.2 * Math.sin(loadT * 4)})`;
+      ctx.fillText(`LOADING ${Math.round(loadProgress * 100)}%`, 300, 530);
+    }
 
     // Bottom tagline
     ctx.font = '400 11px Orbitron, system-ui';
@@ -175,6 +199,13 @@ export function boot(canvas){
 
     if(!assetsReady){
       drawLoadingScreen();
+      requestAnimationFrame(frame);
+      return;
+    }
+
+    // Wait for user click to start (unlocks audio)
+    if(!gameStarted){
+      drawLoadingScreen(); // keep showing loading screen with "CLICK TO START"
       requestAnimationFrame(frame);
       return;
     }

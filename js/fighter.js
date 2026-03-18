@@ -7,7 +7,7 @@ export class Fighter {
     this.glow = def.colors.glow;
 
     this.side = side; // -1 left, +1 right
-    this.facing = side===-1 ? -1 : 1; // P1 (left): no flip (-1). P2 (right): flip (1).
+    this.facing = side===-1 ? 1 : -1; // P1 (left): flip (1) to face right. P2 (right): no flip (-1), faces left.
 
     this.maxHp = def.health;
     this.hp = this.maxHp;
