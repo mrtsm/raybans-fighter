@@ -103,20 +103,19 @@ function removeWhiteBackground(img){
   const d = data.data;
   const w = c.width, h = c.height;
 
-  // Sample corner pixels to detect background color
-  const corners = [
-    0, // top-left
-    (w - 1) * 4, // top-right
-    (h - 1) * w * 4, // bottom-left
-    ((h - 1) * w + w - 1) * 4, // bottom-right
-    // Also sample a few pixels in from corners
-    (w * 2 + 2) * 4,
-    (w * 2 + w - 3) * 4,
-    ((h - 3) * w + 2) * 4,
-    ((h - 3) * w + w - 3) * 4,
-  ];
+  // Sample edge pixels (all 4 borders, every 5th pixel) to detect background color
+  const edgeSamples = [];
+  for(let x = 0; x < w; x += 5){
+    edgeSamples.push((x) * 4); // top row
+    edgeSamples.push(((h-1)*w + x) * 4); // bottom row
+  }
+  for(let y = 0; y < h; y += 5){
+    edgeSamples.push((y*w) * 4); // left col
+    edgeSamples.push((y*w + w-1) * 4); // right col
+  }
+
   let bgR = 0, bgG = 0, bgB = 0, bgCount = 0;
-  for(const idx of corners){
+  for(const idx of edgeSamples){
     if(idx >= 0 && idx + 2 < d.length){
       bgR += d[idx]; bgG += d[idx+1]; bgB += d[idx+2];
       bgCount++;
@@ -128,44 +127,20 @@ function removeWhiteBackground(img){
     bgB = Math.round(bgB / bgCount);
   }
 
-  // If detected background is whitish (common for AI-generated sprites)
-  const bgBrightness = (bgR + bgG + bgB) / 3;
-  const isBgWhitish = bgBrightness > 200;
-
+  // Remove any detected background color (works for white, gray, black, or any solid bg)
   for(let i = 0; i < d.length; i += 4){
     const r = d[i], g = d[i+1], b = d[i+2];
-    const brightness = (r + g + b) / 3;
-    const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+    const distFromBg = Math.sqrt(
+      (r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2
+    );
 
-    if(isBgWhitish){
-      // Distance from detected background color
-      const distFromBg = Math.sqrt(
-        (r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2
-      );
-
-      if(distFromBg < 25 && saturation < 40){
-        // Very close to background: fully transparent
-        d[i+3] = 0;
-      } else if(distFromBg < 55 && saturation < 60){
-        // Near background: soft edge transparency
-        const factor = 1 - ((distFromBg - 25) / 30);
-        d[i+3] = Math.round(d[i+3] * (1 - Math.max(0, factor) * 0.9));
-      } else if(brightness > 235 && saturation < 35){
-        // Catch any remaining near-white
-        d[i+3] = 0;
-      } else if(brightness > 215 && saturation < 50){
-        // Soft edge for slightly bright pixels
-        const factor = (brightness - 215) / 20;
-        d[i+3] = Math.round(d[i+3] * (1 - factor * 0.7));
-      }
-    } else {
-      // Fallback: just remove pure white
-      if(brightness > 245 && saturation < 20){
-        d[i+3] = 0;
-      } else if(brightness > 230 && saturation < 35){
-        const factor = (brightness - 230) / 15;
-        d[i+3] = Math.round(d[i+3] * (1 - factor * 0.6));
-      }
+    if(distFromBg < 30){
+      // Very close to background: fully transparent
+      d[i+3] = 0;
+    } else if(distFromBg < 60){
+      // Near background: soft edge fade
+      const factor = (60 - distFromBg) / 30;
+      d[i+3] = Math.round(d[i+3] * (1 - factor * 0.85));
     }
   }
   ctx.putImageData(data, 0, 0);
