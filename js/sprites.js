@@ -102,44 +102,78 @@ function removeBackground(img){
   const d = data.data;
   const w = c.width, h = c.height;
 
-  // Sample edge pixels (all 4 borders, every 5th pixel) to detect background color
-  const edgeSamples = [];
-  for(let x = 0; x < w; x += 5){
-    edgeSamples.push((x) * 4); // top row
-    edgeSamples.push(((h-1)*w + x) * 4); // bottom row
+  // Sample ALL edge pixels (top, bottom, left, right borders) to detect background
+  let bgR = 0, bgG = 0, bgB = 0, bgCount = 0;
+  for(let x = 0; x < w; x++){
+    // top row
+    let i = x * 4;
+    bgR += d[i]; bgG += d[i+1]; bgB += d[i+2]; bgCount++;
+    // bottom row
+    i = ((h-1)*w + x) * 4;
+    bgR += d[i]; bgG += d[i+1]; bgB += d[i+2]; bgCount++;
   }
-  for(let y = 0; y < h; y += 5){
-    edgeSamples.push((y*w) * 4); // left col
-    edgeSamples.push((y*w + w-1) * 4); // right col
+  for(let y = 1; y < h-1; y++){
+    // left col
+    let i = (y*w) * 4;
+    bgR += d[i]; bgG += d[i+1]; bgB += d[i+2]; bgCount++;
+    // right col
+    i = (y*w + w-1) * 4;
+    bgR += d[i]; bgG += d[i+1]; bgB += d[i+2]; bgCount++;
+  }
+  bgR = Math.round(bgR / bgCount);
+  bgG = Math.round(bgG / bgCount);
+  bgB = Math.round(bgB / bgCount);
+
+  // Flood-fill from corners to find connected background pixels
+  const visited = new Uint8Array(w * h);
+  const isBg = new Uint8Array(w * h);
+  const threshold = 45; // color distance threshold for background
+  const queue = [];
+
+  // Seed from all 4 edges
+  for(let x = 0; x < w; x++){
+    queue.push(x); // top row
+    queue.push((h-1)*w + x); // bottom row
+  }
+  for(let y = 0; y < h; y++){
+    queue.push(y*w); // left col
+    queue.push(y*w + w-1); // right col
   }
 
-  let bgR = 0, bgG = 0, bgB = 0, bgCount = 0;
-  for(const idx of edgeSamples){
-    if(idx >= 0 && idx + 2 < d.length){
-      bgR += d[idx]; bgG += d[idx+1]; bgB += d[idx+2];
-      bgCount++;
+  while(queue.length > 0){
+    const idx = queue.pop();
+    if(idx < 0 || idx >= w*h || visited[idx]) continue;
+    visited[idx] = 1;
+    const pi = idx * 4;
+    const r = d[pi], g = d[pi+1], b = d[pi+2];
+    const dist = Math.sqrt((r-bgR)**2 + (g-bgG)**2 + (b-bgB)**2);
+    if(dist < threshold){
+      isBg[idx] = 1;
+      const x = idx % w, y = (idx / w) | 0;
+      if(x > 0) queue.push(idx - 1);
+      if(x < w-1) queue.push(idx + 1);
+      if(y > 0) queue.push(idx - w);
+      if(y < h-1) queue.push(idx + w);
     }
   }
-  if(bgCount > 0){
-    bgR = Math.round(bgR / bgCount);
-    bgG = Math.round(bgG / bgCount);
-    bgB = Math.round(bgB / bgCount);
-  }
 
-  // Remove any detected background color (works for white, gray, black, or any solid bg)
-  for(let i = 0; i < d.length; i += 4){
-    const r = d[i], g = d[i+1], b = d[i+2];
-    const distFromBg = Math.sqrt(
-      (r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2
-    );
-
-    if(distFromBg < 30){
-      // Very close to background: fully transparent
-      d[i+3] = 0;
-    } else if(distFromBg < 60){
-      // Near background: soft edge fade
-      const factor = (60 - distFromBg) / 30;
-      d[i+3] = Math.round(d[i+3] * (1 - factor * 0.85));
+  // Apply: make background pixels transparent, with soft edges
+  for(let idx = 0; idx < w*h; idx++){
+    if(isBg[idx]){
+      d[idx*4+3] = 0; // fully transparent
+    } else {
+      // Check if adjacent to background for anti-aliased edges
+      const x = idx % w, y = (idx / w) | 0;
+      let adjBg = 0;
+      if(x > 0 && isBg[idx-1]) adjBg++;
+      if(x < w-1 && isBg[idx+1]) adjBg++;
+      if(y > 0 && isBg[idx-w]) adjBg++;
+      if(y < h-1 && isBg[idx+w]) adjBg++;
+      if(adjBg >= 2){
+        d[idx*4+3] = Math.round(d[idx*4+3] * 0.4); // semi-transparent edge
+      } else if(adjBg === 1){
+        d[idx*4+3] = Math.round(d[idx*4+3] * 0.7); // slight edge softening
+      }
     }
   }
   ctx.putImageData(data, 0, 0);
