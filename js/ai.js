@@ -1,89 +1,252 @@
+// AI personalities per fighter
+const AI_PERSONALITIES = {
+  blaze:   { aggression: 0.7, comboStyle: ['light','light','heavy'], specialUse: 0.2 },
+  granite: { aggression: 0.4, comboStyle: ['light','heavy'], specialUse: 0.15 },
+  shade:   { aggression: 0.6, comboStyle: ['light','low','heavy'], specialUse: 0.25 },
+  volt:    { aggression: 0.5, comboStyle: ['light','light','low'], specialUse: 0.2 },
+};
+
 export class AI {
-  constructor({ difficulty='normal' }){
+  constructor({ difficulty='normal', fighterId='blaze' }){
     this.difficulty = difficulty;
+    this.fighterId = fighterId;
+    this.personality = AI_PERSONALITIES[fighterId] || AI_PERSONALITIES.blaze;
+
     this.t = 0;
     this.cooldown = 0;
-    this.reactionMs = { easy:400, normal:250, hard:150, nightmare:100 }[difficulty] ?? 250;
-    this.specialChance = { easy:0.08, normal:0.16, hard:0.24, nightmare:0.32 }[difficulty] ?? 0.16;
-    this.aggression = { easy:0.35, normal:0.5, hard:0.62, nightmare:0.72 }[difficulty] ?? 0.5;
-    this._pending = [];
+    this.reactionMs = { easy:350, normal:200, hard:120, nightmare:80 }[difficulty] ?? 200;
+    this.specialChance = { easy:0.08, normal:0.16, hard:0.28, nightmare:0.38 }[difficulty] ?? 0.16;
+    this.aggression = this.personality.aggression * ({ easy:0.6, normal:0.85, hard:1.0, nightmare:1.15 }[difficulty] ?? 0.85);
+
+    // State machine
+    this.state = 'neutral'; // neutral | pressure | defense | punish | retreat
+    this.plan = []; // queued action sequence
+    this.planIndex = 0;
+    this.planDelay = 0;
+
+    // Combo execution
+    this.comboChance = { easy:0.1, normal:0.3, hard:0.55, nightmare:0.75 }[difficulty] ?? 0.3;
+    this.blockChance = { easy:0.2, normal:0.4, hard:0.6, nightmare:0.8 }[difficulty] ?? 0.4;
+
+    // Pattern tracking
+    this._opponentPatterns = { attack: 0, block: 0, dodge: 0, grab: 0 };
+    this._patternWindow = [];
   }
 
   update(dt, self, opp, context){
     this.t += dt;
-    if(this.cooldown>0){ this.cooldown-=dt; return []; }
 
-    // Don't pick actions if we can't act (wait without burning cooldown)
+    // Execute queued plan
+    if(this.plan.length > 0){
+      this.planDelay -= dt;
+      if(this.planDelay <= 0 && this.planIndex < this.plan.length){
+        const step = this.plan[this.planIndex];
+        this.planIndex++;
+        this.planDelay = step.delay || 0.08;
+        if(this.planIndex >= this.plan.length) this.plan = [];
+        return [step];
+      }
+      return [];
+    }
+
+    if(this.cooldown>0){ this.cooldown-=dt; return []; }
     if(!self.canAct()) return [];
 
-    // adaptation based on opponent last 20 actions
+    // Track opponent patterns
+    this._trackPatterns(opp);
+
+    // Assess state
+    this._assessState(self, opp);
+
+    const dist = Math.abs(self.x - opp.x);
+
+    switch(this.state){
+      case 'pressure': return this._pressurePlan(self, opp, dist, context);
+      case 'defense': return this._defensePlan(self, opp, dist);
+      case 'punish': return this._punishPlan(self, opp, dist);
+      case 'retreat': return this._retreatPlan(self, opp, dist);
+      default: return this._neutralPlan(self, opp, dist, context);
+    }
+  }
+
+  _trackPatterns(opp){
     const hist = opp.recentActions();
-    const blockRate = hist.filter(a=>a==='down_hold').length / Math.max(1,hist.length);
-    const attackRate = hist.filter(a=>a==='light'||a==='heavy').length / Math.max(1,hist.length);
-    const dodgeRate = hist.filter(a=>a==='dash_left'||a==='dash_right').length / Math.max(1,hist.length);
+    this._opponentPatterns.attack = hist.filter(a=>a==='light'||a==='heavy').length / Math.max(1,hist.length);
+    this._opponentPatterns.block = hist.filter(a=>a==='down_hold').length / Math.max(1,hist.length);
+    this._opponentPatterns.dodge = hist.filter(a=>a==='dash_left'||a==='dash_right').length / Math.max(1,hist.length);
+    this._opponentPatterns.grab = hist.filter(a=>a==='grab').length / Math.max(1,hist.length);
+  }
 
-    const dist = Math.abs(self.x-opp.x);
-    const close = dist<80;
-    const mid = dist>=80 && dist<170;
+  _assessState(self, opp){
+    const dist = Math.abs(self.x - opp.x);
 
-    const out=[];
-
-    const roll = Math.random();
-
-    // if opponent blocks a lot -> grab more
-    if(close && blockRate>0.5 && roll<0.35){
-      out.push({ action:'grab' });
-      return this._delay(out);
+    // If opponent is attacking and we're close, defense
+    if(opp.attack && dist < 100 && Math.random() < this.blockChance){
+      this.state = 'defense';
+      return;
     }
 
-    // if opponent attack spams -> block then punish
-    if(attackRate>0.55 && roll<0.25){
-      out.push({ action:'down_hold' });
-      // punish with heavy sometimes
-      if(Math.random()<0.55) out.push({ action:'heavy', after:0.18 });
-      else out.push({ action:'light', after:0.12 });
-      return this._delay(out);
+    // If opponent is in recovery, punish
+    if(opp.attack && opp.attackWindow().recovery && dist < 120){
+      this.state = 'punish';
+      return;
     }
 
-    // if opponent dodges -> delay attacks / chase
-    if(dodgeRate>0.45 && roll<0.22){
-      if(dist>90) out.push({ action:(self.x<opp.x?'dash_right':'dash_left') });
-      out.push({ action:'heavy', after:0.22 });
-      return this._delay(out);
+    // If we're low HP, retreat sometimes
+    if(self.hpPct < 0.25 && Math.random() < 0.3){
+      this.state = 'retreat';
+      return;
     }
 
-    // anti-air
-    if(!opp.onGround && Math.random()<0.35){
+    // If close and aggressive, pressure
+    if(dist < 100 && Math.random() < this.aggression){
+      this.state = 'pressure';
+      return;
+    }
+
+    this.state = 'neutral';
+  }
+
+  _neutralPlan(self, opp, dist, context){
+    const out = [];
+
+    // Anti-air
+    if(!opp.onGround && dist < 120 && Math.random() < 0.4){
       out.push({ action:'heavy' });
       return this._delay(out);
     }
 
-    // use special
-    if(context.aiCanSpecial && Math.random()<this.specialChance){
+    // Use special at range
+    if(context.aiCanSpecial && dist > 120 && Math.random() < this.specialChance){
       out.push({ action:'special' });
       return this._delay(out);
     }
 
-    // neutral logic
-    if(dist>170){
-      out.push({ action:(self.x<opp.x?'dash_right':'dash_left') });
-    } else if(mid){
-      if(Math.random()<this.aggression) out.push({ action:'heavy' });
-      else out.push({ action:'light' });
-    } else if(close){
-      const r=Math.random();
-      if(r<0.15) out.push({ action:'crouch' });
-      else if(r<0.35) out.push({ action:'light' });
-      else if(r<0.55) out.push({ action:'low' });
-      else if(r<0.70) out.push({ action:'heavy' });
-      else out.push({ action:'grab' });
+    // Close in
+    if(dist > 150){
+      out.push({ action:(self.x<opp.x?'walk_right':'walk_left') });
+      if(dist > 200 && Math.random() < 0.4){
+        out.push({ action:(self.x<opp.x?'dash_right':'dash_left') });
+      }
+      return this._delay(out);
+    }
+
+    // Mid range - approach or poke
+    if(dist > 80){
+      if(Math.random() < this.aggression){
+        out.push({ action:(self.x<opp.x?'walk_right':'walk_left') });
+        out.push({ action: Math.random() < 0.5 ? 'light' : 'heavy' });
+      } else {
+        out.push({ action: 'light' });
+      }
+      return this._delay(out);
+    }
+
+    // Close range mixup
+    const r = Math.random();
+    if(r < 0.15 && this._opponentPatterns.block > 0.4){
+      // Opponent blocks a lot, grab
+      out.push({ action:'grab' });
+    } else if(r < 0.35){
+      out.push({ action:'light' });
+    } else if(r < 0.55){
+      out.push({ action:'heavy' });
+    } else if(r < 0.7){
+      out.push({ action:'low' });
+    } else {
+      out.push({ action:'down_hold' });
     }
 
     return this._delay(out);
   }
 
-  _delay(actions){
-    const base = this.reactionMs/1000;
+  _pressurePlan(self, opp, dist, context){
+    // Execute combos!
+    if(Math.random() < this.comboChance && dist < 100){
+      const combo = this.personality.comboStyle;
+      this.plan = combo.map((action, i) => ({
+        action,
+        delay: i === 0 ? 0 : 0.08 + Math.random() * 0.04,
+      }));
+      this.planIndex = 0;
+      this.planDelay = 0;
+      this.cooldown = 0;
+      const first = this.plan[0];
+      this.planIndex = 1;
+      this.planDelay = this.plan[1]?.delay || 0.08;
+      return [first];
+    }
+
+    // Single attack with pressure
+    const out = [];
+    const r = Math.random();
+    if(r < 0.3) out.push({ action:'light' });
+    else if(r < 0.5) out.push({ action:'heavy' });
+    else if(r < 0.65) out.push({ action:'low' });
+    else if(r < 0.8) out.push({ action:'grab' });
+    else out.push({ action: self.x<opp.x?'walk_right':'walk_left' });
+
+    return this._delay(out, 0.6);
+  }
+
+  _defensePlan(self, opp, dist){
+    const out = [];
+
+    // Block
+    out.push({ action:'down_hold' });
+
+    // Counter-attack after blocking
+    if(Math.random() < 0.5){
+      this.plan = [
+        { action: 'down_hold', delay: 0.2 },
+        { action: Math.random() < 0.6 ? 'light' : 'heavy', delay: 0.05 },
+      ];
+      this.planIndex = 0;
+      this.planDelay = 0;
+    }
+
+    return this._delay(out, 0.8);
+  }
+
+  _punishPlan(self, opp, dist){
+    const out = [];
+
+    if(dist < 80){
+      // Punish with combo
+      if(Math.random() < this.comboChance){
+        this.plan = [
+          { action: 'light', delay: 0 },
+          { action: 'heavy', delay: 0.1 },
+        ];
+        this.planIndex = 0;
+        this.planDelay = 0;
+        return [this.plan[0]];
+      }
+      out.push({ action:'heavy' });
+    } else {
+      out.push({ action: self.x<opp.x?'dash_right':'dash_left' });
+    }
+
+    return this._delay(out, 0.5);
+  }
+
+  _retreatPlan(self, opp, dist){
+    const out = [];
+
+    // Back away
+    const awayDir = self.x < opp.x ? 'dash_left' : 'dash_right';
+    out.push({ action: awayDir });
+
+    // Throw projectile if possible
+    if(Math.random() < 0.3){
+      out.push({ action:'special' });
+    }
+
+    return this._delay(out, 1.0);
+  }
+
+  _delay(actions, mult=1){
+    const base = (this.reactionMs/1000) * mult;
     const jitter = (Math.random()*0.06)-0.03;
     this.cooldown = base + jitter;
     return actions;

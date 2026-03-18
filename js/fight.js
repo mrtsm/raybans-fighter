@@ -27,7 +27,6 @@ export class Fight {
     this.p1 = new Fighter(this.p1Def, -1);
     this.p2 = new Fighter(this.p2Def, +1);
 
-    // daily modifiers
     if(this.mods.hpMul){
       this.p1.maxHp = Math.round(this.p1.maxHp*this.mods.hpMul);
       this.p2.maxHp = Math.round(this.p2.maxHp*this.mods.hpMul);
@@ -36,24 +35,40 @@ export class Fight {
     }
 
     this.round = { p1:0, p2:0 };
-    this.timer = 45;
+    this.timer = 30; // Reduced from 45 for faster pace
     this.phase = 'intro';
-    this.phaseT = 1.0;
+    this.phaseT = 0;
+    this.phaseDur = 0.8; // shorter intro
 
     this.scoring = new Scoring();
     this.combat = new Combat({ arena:this.arena, renderer, audio, scoring:this.scoring, mods:this.mods });
 
-    this.ai = new AI({ difficulty });
+    this.ai = new AI({ difficulty, fighterId: p2Id });
 
     this.events = [];
     this.matchTotals = { lights:0, heavies:0, grabs:0, specials:0, sigs:0, perfectDodges:0, blocks:0, timeoutWins:0, whiffPunishes:0, antiAirHeavies:0 };
 
-    this.blockPunishAdvF = 0; // after blocking heavy
     this.lastMove = { wasJumpToLow:false, lastWasJumpAtk:false };
 
     this._roundStartTime = 0;
     this._t = 0;
     this._cameback = false;
+    this._aiBlockTimer = 0;
+
+    // KO cinematic state
+    this._koPhase = false;
+    this._koT = 0;
+    this._koDuration = 1.2;
+    this._koWinner = null;
+
+    // Combo announcer tracking
+    this._lastAnnouncedCombo = 0;
+
+    // Round banner animation
+    this._bannerT = 0;
+
+    // Guard break display timer
+    this._guardBreakDisplayT = 0;
   }
 
   start(){
@@ -61,8 +76,9 @@ export class Fight {
     this.audio.play('sfx_round');
     this.audio.play(this.p1Def.voice.start);
     this.phase='intro';
-    this.phaseT=1.0;
+    this.phaseT=0;
     this._roundStartTime=this._t;
+    this._bannerT = 0;
   }
 
   _resetRoundPositions(){
@@ -75,9 +91,16 @@ export class Fight {
     this.p1.hitstunF=this.p2.hitstunF=0;
     this.p1.blocking=this.p2.blocking='none';
     this.p1.crouching=this.p2.crouching=false;
-    this.timer=45;
+    this.p1.comboRoute=[];
+    this.p2.comboRoute=[];
+    this.p1.consecutiveBlocks=0;
+    this.p2.consecutiveBlocks=0;
+    this.p1.guardBroken=false;
+    this.p2.guardBroken=false;
+    this.timer=30;
     this.phase='intro';
-    this.phaseT=1.0;
+    this.phaseT=0;
+    this._bannerT = 0;
     this.audio.play('sfx_round');
     this.audio.play(this.p1Def.voice.start);
     this._roundStartTime=this._t;
@@ -87,6 +110,18 @@ export class Fight {
   update(dt){
     this._t += dt;
 
+    // Slowmo during KO
+    let effectiveDt = dt;
+    if(this._koPhase){
+      this._koT += dt;
+      effectiveDt = dt * 0.3; // 30% speed during KO
+      if(this._koT >= this._koDuration){
+        this._koPhase = false;
+        this.renderer.zoomTarget = 1.0;
+        this.audio.clearMusicFilter();
+      }
+    }
+
     // last-stand music crossfade
     const anyLastStand = (this.p1.hpPct>0 && this.p1.hpPct<0.2) || (this.p2.hpPct>0 && this.p2.hpPct<0.2);
     if(anyLastStand && this.audio.musicKey!=='music_laststand') this.audio.playMusic('music_laststand');
@@ -95,21 +130,21 @@ export class Fight {
     if(this.mods.quake){
       if(Math.floor(this._t)%7===0 && (this._t%7)<dt){
         this.renderer.doShake(10,0.25);
-        // stumble
-        this.p1.hitstunF = Math.max(this.p1.hitstunF, 4);
-        this.p2.hitstunF = Math.max(this.p2.hitstunF, 4);
+        this.p1.hitstunF = Math.max(this.p1.hitstunF || 0, 4);
+        this.p2.hitstunF = Math.max(this.p2.hitstunF || 0, 4);
       }
     }
 
     // phase
     if(this.phase==='intro'){
-      this.phaseT -= dt;
-      if(this.phaseT<=0){ this.phase='play'; }
+      this.phaseT += effectiveDt;
+      this._bannerT += effectiveDt;
+      if(this.phaseT >= this.phaseDur){ this.phase='play'; }
     }
 
     if(this.phase==='between'){
-      this.phaseT -= dt;
-      if(this.phaseT<=0){
+      this.phaseT += effectiveDt;
+      if(this.phaseT >= 1.8){ // shorter between-round
         if(this.round.p1>=2 || this.round.p2>=2){
           return this._endMatch();
         }
@@ -117,9 +152,12 @@ export class Fight {
       }
     }
 
+    // Guard break display timer
+    if(this._guardBreakDisplayT > 0) this._guardBreakDisplayT -= dt;
+
     // timer
     if(this.phase==='play'){
-      this.timer -= dt;
+      this.timer -= effectiveDt;
       if(this.timer<=0){
         this.timer=0;
         this._roundByTimeout();
@@ -131,39 +169,39 @@ export class Fight {
     this._frameActs = acts;
     this._applyPlayerInputs(acts);
 
-    // AI inputs (opponent)
+    // AI inputs
     if(this.phase==='play'){
-      const aiActs = this.ai.update(dt, this.p2, this.p1, { aiCanSpecial: this.p2.momentum>=30 || this.p2.momentum>=100 });
+      const aiActs = this.ai.update(effectiveDt, this.p2, this.p1, { aiCanSpecial: this.p2.momentum>=30 || this.p2.momentum>=100 });
       this._applyAiInputs(aiActs);
     }
 
-    // resolve grab break window (player only)
+    // resolve grab break
     this._resolveGrabBreak();
 
     // update fighters
     this.p1.setFacingTo(this.p2);
     this.p2.setFacingTo(this.p1);
 
-    this.p1.update(dt, this.arena);
-    this.p2.update(dt, this.arena);
+    this.p1.update(effectiveDt, this.arena);
+    this.p2.update(effectiveDt, this.arena);
 
     // resolve melee
     const r1 = this.combat.resolveMelee(this.p1, this.p2, { isPlayer:true, lastMove:this.lastMove });
     const r2 = this.combat.resolveMelee(this.p2, this.p1, { isPlayer:false });
 
-    if(r1){ console.log('[Combat] P1→P2:', r1.type, r1.kind||'', 'dist:', Math.abs(this.p1.x-this.p2.x).toFixed(0)); this._onCombatEvent(r1, this.p1, this.p2, true); }
-    if(r2){ console.log('[Combat] P2→P1:', r2.type, r2.kind||'', 'dist:', Math.abs(this.p1.x-this.p2.x).toFixed(0)); this._onCombatEvent(r2, this.p2, this.p1, false); }
+    if(r1) this._onCombatEvent(r1, this.p1, this.p2, true);
+    if(r2) this._onCombatEvent(r2, this.p2, this.p1, false);
 
     // AI auto-release block
     if(this._aiBlockTimer>0){
-      this._aiBlockTimer -= dt;
+      this._aiBlockTimer -= effectiveDt;
       if(this._aiBlockTimer<=0){
         this.p2.stopBlock();
       }
     }
 
-    this.combat.update(dt, this.p1, this.p2);
-    this.renderer.updateParticles(dt);
+    this.combat.update(effectiveDt, this.p1, this.p2);
+    this.renderer.updateParticles(effectiveDt);
 
     // check KO
     if(this.phase==='play'){
@@ -178,6 +216,16 @@ export class Fight {
   _applyPlayerInputs(acts){
     for(const a of acts){
       this.p1.pushAction(a);
+
+      // Walk support
+      if(a==='walk_left_hold'){
+        if(this.phase==='play') this.p1.walk(-1);
+        continue;
+      }
+      if(a==='walk_right_hold'){
+        if(this.phase==='play') this.p1.walk(1);
+        continue;
+      }
 
       if(a==='down_hold'){
         if(this.p1.crouching) this.p1.startBlock('crouch');
@@ -205,10 +253,6 @@ export class Fight {
         this.p1.startAttack('heavy');
         this.lastMove.lastWasJumpAtk=false;
       }
-      if(a==='grab'){
-        this.p1.startAttack('grab');
-        this.lastMove.lastWasJumpAtk=false;
-      }
 
       if(a==='special_charge_start'){
         this.p1.startCharge();
@@ -226,10 +270,11 @@ export class Fight {
       const a=step.action;
       if(a==='down_hold'){
         this.p2.startBlock('stand');
-        // Auto-release AI block after a short window
-        this._aiBlockTimer = 0.35;
+        this._aiBlockTimer = 0.3;
         continue;
       }
+      if(a==='walk_left') { this.p2.walk(-1); continue; }
+      if(a==='walk_right') { this.p2.walk(1); continue; }
       if(this.phase!=='play') continue;
       if(a==='dash_left') this._dash(this.p2,-1);
       if(a==='dash_right') this._dash(this.p2,1);
@@ -240,17 +285,15 @@ export class Fight {
       if(a==='heavy') this.p2.startAttack('heavy');
       if(a==='grab') this.p2.startAttack('grab');
       if(a==='special'){
-        // AI: instant charge+release
         this._trySpecialOrSig(this.p2,this.p1,false,0.6);
       }
     }
   }
 
   _dash(f, dir){
-    // corner: cannot dash backward into wall
     const towardWall = (dir<0 && f.x<=this.arena.leftWall+1) || (dir>0 && f.x>=this.arena.rightWall-1);
     if(towardWall) return;
-    const ifr = 4 + (f.lastStand?2:0);
+    const ifr = 6 + (f.lastStand?3:0); // More i-frames at 60fps
     f.startDash(dir, ifr);
     this.audio.play('sfx_dodge');
   }
@@ -269,6 +312,7 @@ export class Fight {
         this.events.push({type:'signature_landed'});
       }
       this.renderer.doFlash(f.color,0.35);
+      this.renderer.doZoom(1.12, 0.5, (f.x+opp.x)/2, (f.y+opp.y)/2);
       return;
     }
 
@@ -303,6 +347,11 @@ export class Fight {
       if(ev.antiAirHeavy) attacker.stats.antiAirHeavies++;
 
       this._momentumDrain(defender, 10);
+
+      // Reset defender's consecutive blocks on hit
+      defender.consecutiveBlocks = 0;
+
+      // Scoring: call onGotHit for defender to reset streak
       if(isPlayer){
         this.events.push({type:'streak', value:ev.streak});
         if(ev.kind==='light') this.matchTotals.lights++;
@@ -310,6 +359,25 @@ export class Fight {
         if(ev.kind==='grab') this.matchTotals.grabs++;
         if(ev.whiffPunish) this.matchTotals.whiffPunishes++;
         if(ev.antiAirHeavy) this.matchTotals.antiAirHeavies++;
+
+        // Update combo counter display
+        this.renderer.updateCombo(ev.streak, defender.x, defender.y, attacker.color);
+
+        // Combo announcer
+        if(ev.streak >= 7 && this._lastAnnouncedCombo < 7){
+          this.audio.play('sfx_combo7', { vol: 0.9 });
+          this._lastAnnouncedCombo = 7;
+        } else if(ev.streak >= 5 && this._lastAnnouncedCombo < 5){
+          this.audio.play('sfx_combo5', { vol: 0.8 });
+          this._lastAnnouncedCombo = 5;
+        } else if(ev.streak >= 3 && this._lastAnnouncedCombo < 3){
+          this.audio.play('sfx_combo3', { vol: 0.7 });
+          this._lastAnnouncedCombo = 3;
+        }
+      } else {
+        // AI hit the player — reset player streak
+        this.scoring.onGotHit(ev.dmg || 0);
+        this._lastAnnouncedCombo = 0;
       }
     }
 
@@ -317,10 +385,10 @@ export class Fight {
       this._momentumDrain(defender, 2);
       this._momentumDrain(attacker, 1);
       if(defender===this.p1) this.matchTotals.blocks++;
-      if(ev.heavy){
-        this.blockPunishAdvF = 4;
-        this.events.push({type:'block_counter'});
-      }
+    }
+
+    if(ev.type==='guard_break'){
+      this._guardBreakDisplayT = 0.8;
     }
 
     if(ev.type==='dodged' && ev.perfect){
@@ -329,13 +397,11 @@ export class Fight {
     }
 
     if(ev.type==='grabbed'){
-      // break window
-      defender._grabbed = { by: attacker, f:8, dmg:ev.dmg, throwPx:ev.throwPx, toCorner:ev.toCorner };
+      defender._grabbed = { by: attacker, f:4, dmg:ev.dmg, throwPx:ev.throwPx, toCorner:ev.toCorner }; // 4 frame break window (tighter)
     }
   }
 
   _resolveGrabBreak(){
-    // player can break if grabbed
     const g=this.p1._grabbed;
     if(!g) return;
     const pressedLight = (this._frameActs||[]).includes('light');
@@ -346,23 +412,39 @@ export class Fight {
     }
     g.f--;
     if(g.f<=0){
-      // apply grab
       this.p1._grabbed=null;
       const dmg = Math.round(g.dmg*(this.mods.dmgMul||1));
       this.p1.takeHit({ dmg, type:'mid', from:g.by });
-      this.p1.x = clamp(this.p1.x + g.by.facing*g.throwPx, this.arena.leftWall, this.arena.rightWall);
+      this.p1.vx += g.by.facing * 300; // velocity-based throw
       this.audio.play('sfx_grab');
-      this.renderer.addParticles(makeHitParticles(g.by.color, this.p1.x, this.p1.y-70, 10));
+      this.renderer.addParticles(makeHitParticles(g.by.color, this.p1.x, this.p1.y-70, 12));
+      this.renderer.doShake(6, 0.20);
+      this.renderer.doFreeze(3);
+      this.scoring.onGotHit(dmg);
     }
   }
 
   _ko(){
     this.phase='between';
-    this.phaseT=2.0;
+    this.phaseT=0;
+    this._bannerT = 0;
     this.audio.play('sfx_ko');
-    this.renderer.doShake(14,0.45);
-    // slow-mo
-    this.combat.slowmoT = 0.5;
+
+    // KO cinematic
+    this._koPhase = true;
+    this._koT = 0;
+    this.renderer.startKOSequence();
+    this.renderer.doShake(16, 0.50);
+    this.renderer.doFreeze(8);
+    this.renderer.doFlash('#ffffff', 0.2);
+
+    // Dynamic camera zoom on KO
+    const midX = (this.p1.x + this.p2.x) / 2;
+    const midY = (this.p1.y + this.p2.y) / 2;
+    this.renderer.doZoom(1.15, 1.0, midX, midY);
+
+    // Music filter for slowmo
+    this.audio.setMusicFilter(800);
 
     // decide winner
     const p1Dead=this.p1.hp<=0;
@@ -371,8 +453,10 @@ export class Fight {
     if(p2Dead && !p1Dead){
       this.round.p1++;
       this.scoring.onRoundWin({ byTimeout:false, perfect:this.scoring.roundDamageTaken===0, under20:(this._t-this._roundStartTime)<20 });
+      this._koWinner = this.p1;
     } else if(p1Dead && !p2Dead){
       this.round.p2++;
+      this._koWinner = this.p2;
     }
 
     this.events.push({ type:'ko', opponentCornered: (this.p2.x<=this.arena.leftWall+1||this.p2.x>=this.arena.rightWall-1), by:(p2Dead?'player':'ai') });
@@ -380,7 +464,8 @@ export class Fight {
 
   _roundByTimeout(){
     this.phase='between';
-    this.phaseT=2.0;
+    this.phaseT=0;
+    this._bannerT = 0;
     const p1Hp=this.p1.hp;
     const p2Hp=this.p2.hp;
 
@@ -392,7 +477,6 @@ export class Fight {
     } else if(p2Hp>p1Hp){
       this.round.p2++;
     } else {
-      // attacker wins: who dealt more damage this round
       if(this.scoring.roundDamageDealt >= this.scoring.roundDamageTaken) this.round.p1++;
       else this.round.p2++;
     }
@@ -401,20 +485,17 @@ export class Fight {
   _endMatch(){
     const win = this.round.p1>this.round.p2;
 
-    // xp
     const mod = { easy:1, normal:1.5, hard:2, nightmare:3 }[this.difficulty] || 1.5;
     let xp = win ? 200 : 50;
     xp = Math.round(xp*mod);
     if(this.scoring.roundDamageTaken===0 && win) xp += 100;
 
-    // bonuses
     const flawless = win && this.scoring.roundDamageTaken===0;
     const cameback = win && (this.p1.hpPct<0.2);
     if(cameback) this._cameback=true;
 
     if(win) this.scoring.onMatchWin({ flawless, comeback:cameback });
 
-    // totals
     this.progression.addTotals({
       lights:this.matchTotals.lights,
       heavies:this.matchTotals.heavies,
@@ -453,6 +534,18 @@ export class Fight {
         daily:this.progression.save.daily,
         achievements:this.progression.save.achievements,
         difficulty:this.difficulty,
+        // Extended stats for results screen
+        stats:{
+          hitsLanded: this.scoring.totalHitsLanded,
+          hitsTaken: this.scoring.totalHitsTaken,
+          maxStreak: this.scoring.maxStreak,
+          damageDealt: this.scoring.roundDamageDealt,
+          damageTaken: this.scoring.roundDamageTaken,
+          perfectBlocks: this.scoring.roundPerfectBlocks,
+          guardBreaks: this.scoring.roundGuardBreaks,
+          specials: this.matchTotals.specials,
+          signatures: this.matchTotals.sigs,
+        },
       }
     };
   }
@@ -460,32 +553,58 @@ export class Fight {
   render(){
     this.renderer.beginScene();
 
-    // arena floor
     const c=this.renderer.ctx;
     c.fillStyle='rgba(255,255,255,0.08)';
     c.fillRect(this.arena.leftWall, this.arena.floorY+110, this.arena.width, 4);
 
+    // Motion trails (draw before fighters)
+    this.renderer.drawTrails();
+
     // fighters
-    // invis effect (shade variant)
-    const p2a=this.p2._invisT>0; if(p2a){ this.p2._invisT-=1/30; }
-    const p1a=this.p1._invisT>0; if(p1a){ this.p1._invisT-=1/30; }
+    const p2a=this.p2._invisT>0; if(p2a){ this.p2._invisT-=1/60; }
+    const p1a=this.p1._invisT>0; if(p1a){ this.p1._invisT-=1/60; }
 
     if(!p1a) this.renderer.drawFighter(this.p1);
     if(!p2a) this.renderer.drawFighter(this.p2);
 
     // projectiles
     for(const pr of this.combat.projectiles){
+      c.save();
       c.fillStyle=pr.color;
       c.globalAlpha=0.9;
+      c.shadowColor = pr.color;
+      c.shadowBlur = 12;
       c.beginPath();
-      c.arc(pr.x, pr.y, 8, 0, Math.PI*2);
+      c.arc(pr.x, pr.y, 10, 0, Math.PI*2);
       c.fill();
-      c.globalAlpha=1;
+      // Glow ring
+      c.globalAlpha = 0.3;
+      c.beginPath();
+      c.arc(pr.x, pr.y, 16, 0, Math.PI*2);
+      c.fill();
+      c.restore();
     }
 
+    // Hit sparks
+    this.renderer.drawHitSparks();
+
+    // Particles
     this.renderer.drawParticles();
 
-    const banner = this.phase==='intro'?'FIGHT!':(this.phase==='between'?'ROUND END':'');
+    // Combo counter
+    this.renderer.drawComboCounter();
+
+    // Damage numbers
+    this.renderer.drawDamageNumbers(this.combat.damageNumbers);
+
+    // Banner
+    let banner = '';
+    let bannerT = this._bannerT;
+    if(this.phase==='intro') banner = 'FIGHT!';
+    else if(this.phase==='between'){
+      if(this._koPhase) banner = 'K.O.';
+      else banner = 'ROUND END';
+    }
 
     this.renderer.drawHud({
       p1:{ name:this.p1.name, hpPct:this.p1.hpPct, momentum:this.p1.momentum, color:this.p1.color },
@@ -494,6 +613,8 @@ export class Fight {
       timer:this.timer,
       matchScore:this.scoring.score,
       banner,
+      bannerT,
+      guardBreakWarning: this._guardBreakDisplayT > 0,
     });
 
     this.renderer.endScene();

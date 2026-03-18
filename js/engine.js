@@ -6,7 +6,7 @@ import { Fight } from './fight.js';
 import { Progression } from './progression.js';
 import { SpriteManager } from './sprites.js';
 
-const FPS = 30;
+const FPS = 60;
 const DT = 1 / FPS;
 
 export function boot(canvas){
@@ -43,13 +43,10 @@ export function boot(canvas){
 
   (async () => {
     try { await audio.init(); } catch(e) { console.warn('Audio init error (non-fatal):', e); }
-    // Load audio in background (don't block)
     const audioPromise = audio.loadAll().catch(e => console.warn('Audio load error:', e));
-    // Sprites must finish before we show the game
     try {
       await sprites.loadAll((p) => { loadProgress = p; });
     } catch(e) { console.error('Sprite load error:', e); }
-    // Wait for audio too (but sprites were the blocker)
     await audioPromise;
     assetsReady = true;
     game.setMode('menu');
@@ -60,14 +57,12 @@ export function boot(canvas){
 
   function drawLoadingScreen(){
     ctx.setTransform(1,0,0,1,0,0);
-    // Background
     const g = ctx.createLinearGradient(0,0,0,600);
     g.addColorStop(0,'#02050e');
     g.addColorStop(1,'#050815');
     ctx.fillStyle = g;
     ctx.fillRect(0,0,600,600);
 
-    // Title
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = '900 36px Orbitron, system-ui';
@@ -77,7 +72,6 @@ export function boot(canvas){
     ctx.fillText('RAY-BANS FIGHTER', 300, 250);
     ctx.shadowBlur = 0;
 
-    // Loading bar
     const barW = 300, barH = 12, barX = 150, barY = 310;
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     ctx.beginPath();
@@ -93,7 +87,6 @@ export function boot(canvas){
     ctx.roundRect(barX, barY, Math.max(fillW, 1), barH, 6);
     ctx.fill();
 
-    // Percentage
     ctx.font = '600 14px Orbitron, system-ui';
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.fillText(`LOADING ${Math.round(loadProgress * 100)}%`, 300, 345);
@@ -102,7 +95,7 @@ export function boot(canvas){
   function frame(){
     const now = performance.now() / 1000;
     let delta = now - last;
-    if(delta > 0.25) delta = 0.25;
+    if(delta > 0.1) delta = 0.1; // tighter cap for 60fps
     last = now;
     acc += delta;
 
@@ -112,7 +105,7 @@ export function boot(canvas){
       return;
     }
 
-    // fixed updates
+    // fixed updates at 60fps
     while(acc >= DT){
       game.t += DT;
       input.update(DT);

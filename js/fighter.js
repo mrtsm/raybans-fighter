@@ -34,9 +34,18 @@ export class Fighter {
     this.shieldT = 0;
     this.shieldHits = 0;
 
-    this.attack = null; // {kind, startupF, activeF, recoveryF, range, dmg, type, ...}
+    this.attack = null;
     this.attackF = 0;
     this.attackHasHit = false;
+
+    // Combo system: cancel chains
+    this.comboRoute = []; // track chain: ['light','light','heavy']
+    this.maxComboLength = 3;
+
+    // Guard break system
+    this.consecutiveBlocks = 0;
+    this.guardBroken = false;
+    this.guardBrokenT = 0;
 
     this.chargeT = 0;
     this.chargePct = 0;
@@ -44,10 +53,14 @@ export class Fighter {
 
     this.lastStand = false;
 
+    // Walk speed (px/s)
+    this.walkSpeed = def.walkSpeed || 100;
+
     // stats
     this.stats = { antiAirHeavies:0, whiffPunishes:0, grabDamage:0, lightDamage:0, heavyDamage:0, specials:0, sigs:0, blocks:0, perfectDodges:0 };
 
-    this._recentActions = []; // for AI pattern tracking
+    this._recentActions = [];
+    this._invisT = 0;
   }
 
   get hpPct(){ return Math.max(0, this.hp/this.maxHp); }
@@ -60,7 +73,6 @@ export class Fighter {
   recentActions(){ return this._recentActions.map(x=>x.a); }
 
   setFacingTo(opp){
-    // Lock facing during attacks, hitstun, charging, dash
     if(this.attack || this.hitstunF>0 || this.charging || this.state==='dash') return;
     this.facing = (opp.x>=this.x) ? 1 : -1;
   }
@@ -70,13 +82,23 @@ export class Fighter {
   }
 
   canAct(){
-    return this.hitstunF<=0 && !this.attack && !this.charging && this.state!=='ko' && this.state!=='victory';
+    return this.hitstunF<=0 && !this.attack && !this.charging && this.state!=='ko' && this.state!=='victory' && !this.guardBroken;
+  }
+
+  // Walk: smooth continuous movement
+  walk(dir){
+    if(!this.canAct() && this.state !== 'idle') return;
+    if(this.hitstunF > 0 || this.state === 'ko' || this.state === 'victory') return;
+    // Don't walk during attacks or charging
+    if(this.attack || this.charging) return;
+    this.x += dir * this.walkSpeed * (1/60);
+    if(this.state === 'idle' || this.state === 'walk') this.state = 'walk';
   }
 
   startDash(dir, iframesF){
     this.state='dash';
     this.stateT=0;
-    this.vx = dir * this.def.dashPx * 30/4; // cover distance in ~4 frames
+    this.vx = dir * this.def.dashPx * 60/6; // cover distance in ~6 frames at 60fps
     this.dashIframesF = iframesF;
     if(this.def.armorDash){
       this.dashArmorHits = this.def.armorDash.hits;
@@ -88,7 +110,7 @@ export class Fighter {
     this.state='jump';
     this.stateT=0;
     this.onGround=false;
-    this.vy = -520; // tuned for ~0.5s airtime
+    this.vy = -520;
   }
 
   startCrouch(){
@@ -99,7 +121,7 @@ export class Fighter {
   }
 
   startBlock(mode){
-    this.blocking = mode; // stand|crouch
+    this.blocking = mode;
     this.state = 'block';
   }
 
@@ -125,8 +147,39 @@ export class Fighter {
     return t;
   }
 
+  // Enhanced startAttack with combo cancel system
   startAttack(kind, variant={}){
-    if(this.attack || this.hitstunF>0 || this.state==='ko' || this.state==='victory') return false;
+    // Allow cancel: light → heavy, light → light (2-hit), light → special
+    if(this.attack){
+      const curKind = this.attack.kind;
+      const aw = this.attackWindow();
+
+      // Cancel window: during active or early recovery frames of current attack
+      const canCancel = aw.active || (aw.recovery && this.attackF <= this.attack.startupF + this.attack.activeF + 3);
+
+      if(canCancel && this.attackHasHit) {
+        // Allowed cancel routes
+        const allowed =
+          (curKind === 'light' && (kind === 'heavy' || kind === 'light' || kind === 'low')) ||
+          (curKind === 'light' && kind === 'special') ||
+          (curKind === 'low' && kind === 'heavy');
+
+        if(allowed && this.comboRoute.length < this.maxComboLength) {
+          // Cancel into next move
+          this.attack = null;
+          this.attackF = 0;
+          this.attackHasHit = false;
+          // Fall through to start new attack below
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+
+    if(this.hitstunF>0 || this.state==='ko' || this.state==='victory' || this.guardBroken) return false;
+
     let m;
     if(kind==='light') m=this.def.moves.light;
     if(kind==='heavy') m=this.def.moves.heavy;
@@ -144,11 +197,14 @@ export class Fighter {
       dmg: m.dmg,
       type: m.type,
       range: (kind==='grab'?40 : (kind==='heavy'?this.def.range.heavy : (kind==='light'?this.def.range.light : this.def.range.low))),
+      hitstunF: m.hitstunF || (kind === 'heavy' ? 12 : kind === 'light' ? 6 : kind === 'low' ? 6 : kind === 'air' ? 8 : 9),
       ...m,
       ...variant,
     };
     this.attackF = 0;
     this.attackHasHit = false;
+    this.comboRoute.push(kind);
+
     this.state = kind==='grab'?'grab':(kind==='heavy'?'heavy':'light');
     this.stateT = 0;
     return true;
@@ -167,7 +223,7 @@ export class Fighter {
     if(this.state==='dash' && this.dashArmorHits>0){
       this.dashArmorHits--;
       const applied = Math.ceil(dmg*0.5);
-      this.hp = Math.max(1, this.hp - applied); // armor never kills
+      this.hp = Math.max(1, this.hp - applied);
       return { hit:true, armored:true, dmg:applied };
     }
 
@@ -179,6 +235,11 @@ export class Fighter {
       return { hit:true, armored:true, dmg:applied };
     }
 
+    // Guard broken = can't block
+    if(this.guardBroken){
+      return this._applyHit(dmg, type, from);
+    }
+
     // blocking
     if(this.blocking!=='none'){
       let blocks = false;
@@ -186,27 +247,56 @@ export class Fighter {
       if(this.blocking==='crouch' && type==='low') blocks=true;
       if(blocks){
         this.stats.blocks++;
-        const chip = isChip ? Math.ceil(dmg*0.2) : Math.ceil(dmg*0.2);
-        const canChipKill = false;
-        const applied = (canChipKill?chip:Math.min(chip, Math.max(0,this.hp-1)));
+        this.consecutiveBlocks++;
+
+        // Guard break after 3 consecutive blocks
+        if(this.consecutiveBlocks >= 3){
+          this.guardBroken = true;
+          this.guardBrokenT = 0.5; // 0.5s stun
+          this.blocking = 'none';
+          this.state = 'hit';
+          this.consecutiveBlocks = 0;
+          return { hit:false, guardBroken:true };
+        }
+
+        const chip = Math.ceil(dmg*0.25);
+        // Chip can kill at ≤5% HP
+        const canChipKill = this.hpPct <= 0.05;
+        const applied = canChipKill ? chip : Math.min(chip, Math.max(0, this.hp-1));
         this.hp -= applied;
         return { hit:false, blocked:true, chip:applied };
       }
     }
 
-    // real hit
+    return this._applyHit(dmg, type, from);
+  }
+
+  _applyHit(dmg, type, from){
     this.hp = Math.max(0, this.hp - dmg);
-    this.hitstunF = 9;
+    // Hitstun is set by combat.js based on the attacking move
+    this.hitstunF = 9; // default, overridden by combat
     this.state='hit';
     this.attack=null;
     this.charging=false;
     this.chargePct=0;
+    this.comboRoute = []; // reset combo chain
+    this.consecutiveBlocks = 0; // reset guard break counter on hit
     return { hit:true, dmg };
   }
 
   update(dt, arena){
     // last stand state
     this.lastStand = this.hpPct>0 && this.hpPct<0.2;
+
+    // Guard broken timer
+    if(this.guardBroken){
+      this.guardBrokenT -= dt;
+      if(this.guardBrokenT <= 0){
+        this.guardBroken = false;
+        this.guardBrokenT = 0;
+        if(this.state === 'hit') this.state = 'idle';
+      }
+    }
 
     // timers
     if(this.hitstunF>0){
@@ -241,8 +331,15 @@ export class Fighter {
       const totalF = this.attack.startupF + this.attack.activeF + this.attack.recoveryF;
       if(this.attackF >= totalF){
         this.attack = null;
+        this.comboRoute = []; // reset combo chain on attack end
         this.state='idle';
       }
+    }
+
+    // Reset walk state
+    if(this.state === 'walk' && !this.attack && this.hitstunF <= 0) {
+      // Will be set back to 'walk' by walk() if still moving
+      this.state = 'idle';
     }
 
     // movement physics
@@ -258,13 +355,13 @@ export class Fighter {
       }
     }
 
-    // dash decay
+    // velocity-based movement with smoother decay
     this.x += this.vx*dt;
-    this.vx *= 0.70;
-    if(Math.abs(this.vx)<15) this.vx=0;
+    this.vx *= 0.85; // smoother at 60fps
+    if(Math.abs(this.vx)<10) this.vx=0;
     if(this.state==='dash' && this.vx===0) this.state='idle';
 
-    // walls (560px wide within 600)
+    // walls
     const minX = arena.leftWall;
     const maxX = arena.rightWall;
     this.x = Math.max(minX, Math.min(maxX, this.x));

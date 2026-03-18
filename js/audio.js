@@ -30,6 +30,10 @@ const SFX = {
   sfx_xp:'assets/sfx/xp_gain.mp3',
   sfx_level:'assets/sfx/level_up.mp3',
   sfx_ach:'assets/sfx/achievement.mp3',
+  sfx_guardbreak:'assets/sfx/heavy_hit.mp3',
+  sfx_combo3:'assets/sfx/menu_select.mp3',
+  sfx_combo5:'assets/sfx/menu_select.mp3',
+  sfx_combo7:'assets/sfx/menu_select.mp3',
 };
 
 const VOICES = {
@@ -63,24 +67,28 @@ export class AudioManager{
     this.musicGain = null;
     this.musicKey = null;
     this.lastStand = false;
+
+    // Low-pass filter for slowmo effects
+    this._filter = null;
+    this._filterConnected = false;
   }
 
   async init(){
-    // lazily create audio context on first interaction if needed
     const AC = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AC({ latencyHint:'interactive' });
     this.musicGain = this.ctx.createGain();
     this.musicGain.gain.value = this.master.music;
     this.musicGain.connect(this.ctx.destination);
 
-    // resume on user gesture
     const resume = async()=>{
       if(this.ctx.state!=='running') await this.ctx.resume();
       window.removeEventListener('pointerdown', resume);
       window.removeEventListener('keydown', resume);
+      window.removeEventListener('click', resume);
     };
     window.addEventListener('pointerdown', resume);
     window.addEventListener('keydown', resume);
+    window.addEventListener('click', resume);
   }
 
   keys(){ return { MUSIC, SFX, VOICES }; }
@@ -98,13 +106,20 @@ export class AudioManager{
     }));
   }
 
-  play(key, { vol=1, rate=1 } = {}){
+  play(key, { vol=1, rate=1, variations=false } = {}){
     const buf = this.buffers.get(key);
     if(!buf) return;
     this._ensureRunning();
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
-    src.playbackRate.value = rate;
+
+    // Pitch variation for natural feel
+    let actualRate = rate;
+    if(variations){
+      actualRate += (Math.random() - 0.5) * 0.2; // ±10% pitch shift
+    }
+    src.playbackRate.value = actualRate;
+
     const g = this.ctx.createGain();
     const isVoice = key.startsWith('blaze_')||key.startsWith('granite_')||key.startsWith('shade_')||key.startsWith('volt_');
     g.gain.value = vol * (isVoice?this.master.voice:this.master.sfx);
@@ -128,7 +143,6 @@ export class AudioManager{
     const fade = 0.25;
     const now = this.ctx.currentTime;
 
-    // fade out old
     if(this.musicNode){
       const old = this.musicNode;
       this.musicGain.gain.cancelScheduledValues(now);
@@ -137,7 +151,6 @@ export class AudioManager{
       setTimeout(()=>{ try{ old.stop(); }catch{} }, (fade*1000)+10);
     }
 
-    // new node
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     src.loop = loop;
@@ -145,9 +158,33 @@ export class AudioManager{
     this.musicNode = src;
     this.musicKey = key;
 
-    // fade in
     this.musicGain.gain.setValueAtTime(0, now);
     this.musicGain.gain.linearRampToValueAtTime(this.master.music, now+fade);
     src.start();
+  }
+
+  // Music filter for slowmo effect
+  setMusicFilter(freq){
+    if(!this.ctx) return;
+    if(!this._filter){
+      this._filter = this.ctx.createBiquadFilter();
+      this._filter.type = 'lowpass';
+      this._filter.frequency.value = 22050;
+    }
+    this._filter.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.1);
+    if(!this._filterConnected && this.musicNode){
+      try {
+        this.musicGain.disconnect();
+        this.musicGain.connect(this._filter);
+        this._filter.connect(this.ctx.destination);
+        this._filterConnected = true;
+      } catch {}
+    }
+  }
+
+  clearMusicFilter(){
+    if(this._filter){
+      this._filter.frequency.setTargetAtTime(22050, this.ctx.currentTime, 0.2);
+    }
   }
 }

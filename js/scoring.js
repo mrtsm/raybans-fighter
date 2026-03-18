@@ -2,6 +2,7 @@ export class Scoring {
   constructor(){
     this.score = 0;
     this.streak = 0;
+    this.maxStreak = 0;
     this.mult = 1;
     this.roundDamageDealt = 0;
     this.roundDamageTaken = 0;
@@ -12,11 +13,16 @@ export class Scoring {
     this.roundHeavyDamage = 0;
     this.roundSpecials = 0;
     this.roundSignatures = 0;
+    this.roundPerfectBlocks = 0;
+    this.roundGuardBreaks = 0;
+    this.totalHitsLanded = 0;
+    this.totalHitsTaken = 0;
     this.timeoutWin = false;
   }
 
   _updateMult(){
-    if(this.streak>=7) this.mult=3;
+    if(this.streak>=10) this.mult=4;
+    else if(this.streak>=7) this.mult=3;
     else if(this.streak>=5) this.mult=2;
     else if(this.streak>=3) this.mult=1.5;
     else this.mult=1;
@@ -24,6 +30,8 @@ export class Scoring {
 
   onHit({ kind, points, dmg, whiffPunish=false, antiAirHeavy=false, mixBonus=false }){
     this.streak++;
+    if(this.streak > this.maxStreak) this.maxStreak = this.streak;
+    this.totalHitsLanded++;
     this._updateMult();
     const add = Math.round(points * this.mult);
     this.score += add;
@@ -43,8 +51,19 @@ export class Scoring {
 
   onGotHit(dmg){
     this.roundDamageTaken += dmg;
+    this.totalHitsTaken++;
     this.streak = 0;
     this._updateMult();
+  }
+
+  onPerfectBlock(){
+    this.roundPerfectBlocks++;
+    this.score += 150;
+  }
+
+  onGuardBreak(){
+    this.roundGuardBreaks++;
+    this.score += 300;
   }
 
   onRoundWin({ byTimeout=false, perfect=false, under20=false }){
