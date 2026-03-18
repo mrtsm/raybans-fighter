@@ -160,6 +160,9 @@ export class Fighter {
 
   // Enhanced startAttack with combo cancel system
   startAttack(kind, variant={}){
+    // Force stop blocking when player tries to attack
+    this.blocking = 'none';
+    this.crouching = false;
     // Allow cancel: light → heavy, light → light (2-hit), light → special
     if(this.attack){
       const curKind = this.attack.kind;

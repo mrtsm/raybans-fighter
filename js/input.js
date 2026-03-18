@@ -74,20 +74,19 @@ export class Input {
     canvas.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
       // Push attack/special immediately on pointerdown (armband primary path)
-      if(!this._clickHandled) {
-        this._clickHandled = true;
-        setTimeout(() => { this._clickHandled = false; }, 50);
+      // Always handle — don't check _clickHandled for pointer events
+      this._clickHandled = true;
+      setTimeout(() => { this._clickHandled = false; }, 50);
 
-        this._mouseDownAt.set(e.button, this.now);
-        this._mouseChargeStarted.set(e.button, false);
+      this._mouseDownAt.set(e.button, this.now);
+      this._mouseChargeStarted.set(e.button, false);
 
-        if(e.button === 0) { // Left click → attack
-          this._push('light');
-        }
-        if(e.button === 2) { // Right click → special
-          this._push('special');
-        }
+      if(e.button === 2) { // Right click → special
+        this._push('special');
+      } else { // Any other click (0, undefined, etc.) → attack
+        this._push('light');
       }
+
       // Touch tracking (for swipe gestures on actual touch screens)
       if(e.pointerType === 'touch') {
         this._pd(e);
