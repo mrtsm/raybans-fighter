@@ -43,12 +43,13 @@ export function boot(canvas){
   let assetsReady = false;
 
   (async () => {
-    try { await audio.init(); } catch(e) { console.warn('Audio init error (non-fatal):', e); }
-    const audioPromise = audio.loadAll().catch(e => console.warn('Audio load error:', e));
+    // Start audio pre-fetch + gesture listener setup (non-blocking)
+    // AudioContext is created lazily on first user interaction
+    audio.init().catch(e => console.warn('Audio init error (non-fatal):', e));
+    // Load sprites (this is the visible progress bar)
     try {
       await sprites.loadAll((p) => { loadProgress = p; });
     } catch(e) { console.error('Sprite load error:', e); }
-    await audioPromise;
     assetsReady = true;
     // Start with splash intro, NOT menu directly
     game.setMode('splash');
