@@ -9,9 +9,9 @@ import {
   lerp,
 } from './sprites.js';
 
-const LS_HIGHSCORE_KEY = 'raybans_fighter_highscores_v1';
-const LS_DAILY_HIGHSCORE_KEY = 'raybans_fighter_daily_highscores_v1';
-const LS_STREAK_KEY = 'raybans_fighter_streak_v1';
+const LS_HIGHSCORE_KEY = 'pixel_brawl_highscores_v1';
+const LS_DAILY_HIGHSCORE_KEY = 'pixel_brawl_daily_highscores_v1';
+const LS_STREAK_KEY = 'pixel_brawl_streak_v1';
 
 // ===== DAILY CHALLENGE SYSTEM =====
 const DAILY_MODIFIERS = [
@@ -506,12 +506,12 @@ export class UI {
       c.fillStyle = '#fff';
       c.shadowColor = 'rgba(120,240,255,0.9)';
       c.shadowBlur = 30 + Math.sin(t * 8) * 5;
-      c.fillText('RAY-BANS', 0, -30);
+      c.fillText('PIXEL', 0, -30);
 
       c.font = '900 68px Orbitron, system-ui';
       c.shadowColor = 'rgba(210,150,255,0.9)';
       c.shadowBlur = 34 + Math.sin(t * 6) * 5;
-      c.fillText('FIGHTER', 0, 45);
+      c.fillText('BRAWL', 0, 45);
       c.restore();
     }
 
@@ -655,8 +655,8 @@ export class UI {
     this._drawBg('title');
 
     // Title
-    neonText(c, 'RAY-BANS', 300, 88, { size:56, glow:'rgba(120,240,255,0.9)', blur:30, weight:900 });
-    neonText(c, 'FIGHTER', 300, 152, { size:70, glow:'rgba(210,150,255,0.85)', blur:34, weight:900 });
+    neonText(c, 'PIXEL', 300, 88, { size:56, glow:'rgba(120,240,255,0.9)', blur:30, weight:900 });
+    neonText(c, 'BRAWL', 300, 152, { size:70, glow:'rgba(210,150,255,0.85)', blur:34, weight:900 });
 
     // High scores view
     if(this._hsView){

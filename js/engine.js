@@ -71,7 +71,7 @@ export function boot(canvas){
     ctx.fillStyle = '#fff';
     ctx.shadowColor = 'rgba(120,240,255,0.6)';
     ctx.shadowBlur = 20;
-    ctx.fillText('RAY-BANS FIGHTER', 300, 250);
+    ctx.fillText('PIXEL BRAWL', 300, 250);
     ctx.shadowBlur = 0;
 
     const barW = 300, barH = 12, barX = 150, barY = 310;

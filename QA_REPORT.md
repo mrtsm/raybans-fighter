@@ -1,4 +1,4 @@
-# QA REPORT — Ray-Bans Fighter
+# QA REPORT — Pixel Brawl
 
 **Final Report:** 2026-03-18 05:55 UTC  
 **Test Suite:** `tests/run-all.sh` (validate.js + gameplay-check.js)  

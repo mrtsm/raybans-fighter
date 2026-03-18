@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * validate.js — Structural validation for Ray-Bans Fighter
+ * validate.js — Structural validation for Pixel Brawl
  * Checks: JS syntax, module graph, sprites, audio, canvas size, localStorage keys, duplicates
  */
 

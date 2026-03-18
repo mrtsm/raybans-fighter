@@ -1,4 +1,4 @@
-# ⚡ Ray-Bans Fighter
+# ⚡ Pixel Brawl
 
 **AAA-quality 2D fighting game for Meta display glasses.**
 

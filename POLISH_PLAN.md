@@ -1,4 +1,4 @@
-# POLISH_PLAN.md — Raybans Fighter AAA Polish Roadmap
+# POLISH_PLAN.md — Pixel Brawl AAA Polish Roadmap
 
 > **Goal:** Make this feel like a showcase title for Meta display glasses. Every hit should be visceral, every move satisfying, every interaction responsive. Think Street Fighter 6 level of juice on a 600×600 canvas.
 

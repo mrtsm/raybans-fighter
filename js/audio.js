@@ -104,15 +104,19 @@ export class AudioManager{
     this.musicGain.gain.value = this.master.music;
     this.musicGain.connect(this.ctx.destination);
 
+    // Aggressively resume AudioContext on ANY user interaction
+    // Meta glasses browser + most mobile browsers block audio until user gesture
     const resume = async()=>{
-      if(this.ctx.state!=='running') await this.ctx.resume();
-      window.removeEventListener('pointerdown', resume);
-      window.removeEventListener('keydown', resume);
-      window.removeEventListener('click', resume);
+      if(this.ctx.state!=='running'){
+        try { await this.ctx.resume(); } catch {}
+      }
     };
-    window.addEventListener('pointerdown', resume);
-    window.addEventListener('keydown', resume);
-    window.addEventListener('click', resume);
+    // Listen on multiple events to catch the first interaction
+    for(const evt of ['pointerdown','pointerup','click','mousedown','mouseup','touchstart','touchend','keydown','keyup']){
+      window.addEventListener(evt, resume, { passive: true });
+    }
+    // Also try resuming immediately in case we already have gesture permission
+    resume();
   }
 
   keys(){ return { MUSIC, SFX, VOICES }; }
@@ -169,7 +173,8 @@ export class AudioManager{
   playMusic(key, { loop=true } = {}){
     if(this.musicKey === key) return;
     const buf = this.buffers.get(key);
-    if(!buf) { this.musicKey=null; return; }
+    if(!buf) { console.warn('[Audio] No buffer for', key); this.musicKey=null; return; }
+    // Always try to resume — critical for Meta glasses browser
     if(this.ctx && this.ctx.state !== 'running'){
       this.ctx.resume().catch(()=>{});
     }
@@ -195,6 +200,7 @@ export class AudioManager{
     this.musicGain.gain.setValueAtTime(0, now);
     this.musicGain.gain.linearRampToValueAtTime(this.master.music, now+fade);
     src.start();
+    console.log('[Audio] Playing music:', key, 'ctx.state:', this.ctx.state);
   }
 
   stopMusic(){
