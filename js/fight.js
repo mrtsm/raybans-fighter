@@ -5,7 +5,7 @@ import { Scoring } from './scoring.js';
 import { FIGHTERS } from './data/fighters.js';
 
 export class Fight {
-  constructor({ renderer, input, audio, progression, p1Id, p2Id, difficulty, dailyMod=null }){
+  constructor({ renderer, input, audio, progression, p1Id, p2Id, difficulty, dailyMod=null, streakBonus=0, dailyMode=false, streak=0 }){
     this.renderer = renderer;
     this.input = input;
     this.audio = audio;
@@ -14,6 +14,8 @@ export class Fight {
     this.p1Def = FIGHTERS[p1Id];
     this.p2Def = FIGHTERS[p2Id];
     this.difficulty = difficulty;
+    this.dailyMode = dailyMode;
+    this.streak = streak;
 
     this.mods = dailyMod?.mod || {};
 
@@ -27,6 +29,7 @@ export class Fight {
     this.p1 = new Fighter(this.p1Def, -1);
     this.p2 = new Fighter(this.p2Def, +1);
 
+    // Apply daily mods
     if(this.mods.hpMul){
       this.p1.maxHp = Math.round(this.p1.maxHp*this.mods.hpMul);
       this.p2.maxHp = Math.round(this.p2.maxHp*this.mods.hpMul);
@@ -34,16 +37,35 @@ export class Fight {
       this.p2.hp=this.p2.maxHp;
     }
 
+    // No block mod
+    if(this.mods.noBlock){
+      this.p1._blockDisabled = true;
+      this.p2._blockDisabled = true;
+    }
+
+    // Giant/tiny mode
+    if(this.mods.scaleMul){
+      this.p1._renderScale = this.mods.scaleMul;
+      this.p2._renderScale = this.mods.scaleMul;
+    }
+
+    // Low gravity mode
+    if(this.mods.gravMul){
+      this.p1.gravMul = this.mods.gravMul;
+      this.p2.gravMul = this.mods.gravMul;
+    }
+
     this.round = { p1:0, p2:0 };
-    this.timer = 30; // Reduced from 45 for faster pace
+    this.timer = 30;
     this.phase = 'intro';
     this.phaseT = 0;
-    this.phaseDur = 0.8; // shorter intro
+    this.phaseDur = 0.8;
 
     this.scoring = new Scoring();
     this.combat = new Combat({ arena:this.arena, renderer, audio, scoring:this.scoring, mods:this.mods });
 
-    this.ai = new AI({ difficulty, fighterId: p2Id });
+    // AI with streak difficulty bonus
+    this.ai = new AI({ difficulty, fighterId: p2Id, streakBonus });
 
     this.events = [];
     this.matchTotals = { lights:0, heavies:0, grabs:0, specials:0, sigs:0, perfectDodges:0, blocks:0, timeoutWins:0, whiffPunishes:0, antiAirHeavies:0 };
@@ -69,6 +91,12 @@ export class Fight {
 
     // Guard break display timer
     this._guardBreakDisplayT = 0;
+
+    // Speed multiplier from daily mod
+    this._speedMul = this.mods.speedMul || 1;
+
+    // Gravity multiplier from daily mod
+    this._gravMul = this.mods.gravMul || 1;
   }
 
   start(){
@@ -108,13 +136,16 @@ export class Fight {
   }
 
   update(dt){
+    // Apply speed multiplier
+    dt *= this._speedMul;
+
     this._t += dt;
 
     // Slowmo during KO
     let effectiveDt = dt;
     if(this._koPhase){
       this._koT += dt;
-      effectiveDt = dt * 0.3; // 30% speed during KO
+      effectiveDt = dt * 0.3;
       if(this._koT >= this._koDuration){
         this._koPhase = false;
         this.renderer.zoomTarget = 1.0;
@@ -144,7 +175,7 @@ export class Fight {
 
     if(this.phase==='between'){
       this.phaseT += effectiveDt;
-      if(this.phaseT >= 1.8){ // shorter between-round
+      if(this.phaseT >= 1.8){
         if(this.round.p1>=2 || this.round.p2>=2){
           return this._endMatch();
         }
@@ -171,7 +202,7 @@ export class Fight {
 
     // AI inputs
     if(this.phase==='play'){
-      const aiActs = this.ai.update(effectiveDt, this.p2, this.p1, { aiCanSpecial: this.p2.momentum>=30 || this.p2.momentum>=100 });
+      const aiActs = this.ai.update(effectiveDt, this.p2, this.p1, { aiCanSpecial: this.mods.freeSpecials || this.p2.momentum>=30 || this.p2.momentum>=100 });
       this._applyAiInputs(aiActs);
     }
 
@@ -182,8 +213,8 @@ export class Fight {
     this.p1.setFacingTo(this.p2);
     this.p2.setFacingTo(this.p1);
 
-    this.p1.update(effectiveDt, this.arena);
-    this.p2.update(effectiveDt, this.arena);
+    this.p1.update(effectiveDt, this.arena, this._gravMul);
+    this.p2.update(effectiveDt, this.arena, this._gravMul);
 
     // resolve melee
     const r1 = this.combat.resolveMelee(this.p1, this.p2, { isPlayer:true, lastMove:this.lastMove });
@@ -217,7 +248,6 @@ export class Fight {
     for(const a of acts){
       this.p1.pushAction(a);
 
-      // Walk support
       if(a==='walk_left_hold'){
         if(this.phase==='play') this.p1.walk(-1);
         continue;
@@ -228,6 +258,7 @@ export class Fight {
       }
 
       if(a==='down_hold'){
+        if(this.mods.noBlock) continue; // No block mod
         if(this.p1.crouching) this.p1.startBlock('crouch');
         else this.p1.startBlock('stand');
         continue;
@@ -243,7 +274,6 @@ export class Fight {
       if(a==='jump') this.p1.startJump();
       if(a==='crouch') this.p1.startCrouch();
 
-      // attacks
       if(a==='light'){
         if(!this.p1.onGround) { this.p1.startAttack('air'); this.lastMove.lastWasJumpAtk=true; }
         else if(this.p1.crouching) { this.p1.startAttack('low'); this.lastMove.wasJumpToLow=this.lastMove.lastWasJumpAtk; this.lastMove.lastWasJumpAtk=false; }
@@ -269,6 +299,7 @@ export class Fight {
     for(const step of actions){
       const a=step.action;
       if(a==='down_hold'){
+        if(this.mods.noBlock) continue;
         this.p2.startBlock('stand');
         this._aiBlockTimer = 0.3;
         continue;
@@ -293,17 +324,18 @@ export class Fight {
   _dash(f, dir){
     const towardWall = (dir<0 && f.x<=this.arena.leftWall+1) || (dir>0 && f.x>=this.arena.rightWall-1);
     if(towardWall) return;
-    const ifr = 6 + (f.lastStand?3:0); // More i-frames at 60fps
+    const ifr = 6 + (f.lastStand?3:0);
     f.startDash(dir, ifr);
-    this.audio.play('sfx_dodge');
+    this.audio.play('sfx_whoosh', { variations: true });
   }
 
   _trySpecialOrSig(f, opp, isPlayer, held){
     const rank = this.progression.masteryRank(f.id);
+    const freeSpecials = this.mods.freeSpecials;
 
-    const canSig = f.momentum>=100 && held>=1.0;
+    const canSig = (freeSpecials || f.momentum>=100) && held>=1.0;
     if(canSig){
-      f.momentum = 0;
+      if(!freeSpecials) f.momentum = 0;
       f.stats.sigs++;
       const res=this.combat.signature(f, opp);
       if(isPlayer){
@@ -316,8 +348,8 @@ export class Fight {
       return;
     }
 
-    if(f.momentum < 30) return;
-    f.momentum -= 30;
+    if(!freeSpecials && f.momentum < 30) return;
+    if(!freeSpecials) f.momentum -= 30;
     f.stats.specials++;
     const out = this.combat.fireSpecial(f, opp, rank);
     if(isPlayer){
@@ -347,11 +379,8 @@ export class Fight {
       if(ev.antiAirHeavy) attacker.stats.antiAirHeavies++;
 
       this._momentumDrain(defender, 10);
-
-      // Reset defender's consecutive blocks on hit
       defender.consecutiveBlocks = 0;
 
-      // Scoring: call onGotHit for defender to reset streak
       if(isPlayer){
         this.events.push({type:'streak', value:ev.streak});
         if(ev.kind==='light') this.matchTotals.lights++;
@@ -360,22 +389,19 @@ export class Fight {
         if(ev.whiffPunish) this.matchTotals.whiffPunishes++;
         if(ev.antiAirHeavy) this.matchTotals.antiAirHeavies++;
 
-        // Update combo counter display
         this.renderer.updateCombo(ev.streak, defender.x, defender.y, attacker.color);
 
-        // Combo announcer
         if(ev.streak >= 7 && this._lastAnnouncedCombo < 7){
-          this.audio.play('sfx_combo7', { vol: 0.9 });
+          this.audio.play('sfx_combo7', { vol: 0.9, rate: 1.3 });
           this._lastAnnouncedCombo = 7;
         } else if(ev.streak >= 5 && this._lastAnnouncedCombo < 5){
-          this.audio.play('sfx_combo5', { vol: 0.8 });
+          this.audio.play('sfx_combo5', { vol: 0.8, rate: 1.15 });
           this._lastAnnouncedCombo = 5;
         } else if(ev.streak >= 3 && this._lastAnnouncedCombo < 3){
           this.audio.play('sfx_combo3', { vol: 0.7 });
           this._lastAnnouncedCombo = 3;
         }
       } else {
-        // AI hit the player — reset player streak
         this.scoring.onGotHit(ev.dmg || 0);
         this._lastAnnouncedCombo = 0;
       }
@@ -389,6 +415,7 @@ export class Fight {
 
     if(ev.type==='guard_break'){
       this._guardBreakDisplayT = 0.8;
+      this.audio.play('sfx_guardbreak');
     }
 
     if(ev.type==='dodged' && ev.perfect){
@@ -397,7 +424,7 @@ export class Fight {
     }
 
     if(ev.type==='grabbed'){
-      defender._grabbed = { by: attacker, f:4, dmg:ev.dmg, throwPx:ev.throwPx, toCorner:ev.toCorner }; // 4 frame break window (tighter)
+      defender._grabbed = { by: attacker, f:4, dmg:ev.dmg, throwPx:ev.throwPx, toCorner:ev.toCorner };
     }
   }
 
@@ -415,7 +442,7 @@ export class Fight {
       this.p1._grabbed=null;
       const dmg = Math.round(g.dmg*(this.mods.dmgMul||1));
       this.p1.takeHit({ dmg, type:'mid', from:g.by });
-      this.p1.vx += g.by.facing * 300; // velocity-based throw
+      this.p1.vx += g.by.facing * 300;
       this.audio.play('sfx_grab');
       this.renderer.addParticles(makeHitParticles(g.by.color, this.p1.x, this.p1.y-70, 12));
       this.renderer.doShake(6, 0.20);
@@ -430,7 +457,6 @@ export class Fight {
     this._bannerT = 0;
     this.audio.play('sfx_ko');
 
-    // KO cinematic
     this._koPhase = true;
     this._koT = 0;
     this.renderer.startKOSequence();
@@ -438,15 +464,12 @@ export class Fight {
     this.renderer.doFreeze(8);
     this.renderer.doFlash('#ffffff', 0.2);
 
-    // Dynamic camera zoom on KO
     const midX = (this.p1.x + this.p2.x) / 2;
     const midY = (this.p1.y + this.p2.y) / 2;
     this.renderer.doZoom(1.15, 1.0, midX, midY);
 
-    // Music filter for slowmo
     this.audio.setMusicFilter(800);
 
-    // decide winner
     const p1Dead=this.p1.hp<=0;
     const p2Dead=this.p2.hp<=0;
 
@@ -514,10 +537,10 @@ export class Fight {
 
     this.progression.awardMatch({ fighterId:this.p1.id, win, difficulty:this.difficulty, xp, score:this.scoring.score, events });
 
-    if(this.mods && Object.keys(this.mods).length) this.progression.setDailyCompleted();
+    if(this.dailyMode) this.progression.setDailyCompleted();
 
-    if(win){ this.audio.play(this.p1Def.voice.win); this.audio.play('music_victory'); }
-    else { this.audio.play(this.p1Def.voice.lose); this.audio.play('music_defeat'); }
+    if(win){ this.audio.play(this.p1Def.voice.win); this.audio.playMusic('music_victory', { loop: false }); }
+    else { this.audio.playMusic('music_defeat', { loop: false }); }
 
     return {
       type:'match_end',
@@ -534,7 +557,8 @@ export class Fight {
         daily:this.progression.save.daily,
         achievements:this.progression.save.achievements,
         difficulty:this.difficulty,
-        // Extended stats for results screen
+        dailyMode:this.dailyMode,
+        streak:this.streak,
         stats:{
           hitsLanded: this.scoring.totalHitsLanded,
           hitsTaken: this.scoring.totalHitsTaken,
@@ -557,7 +581,7 @@ export class Fight {
     c.fillStyle='rgba(255,255,255,0.08)';
     c.fillRect(this.arena.leftWall, this.arena.floorY+110, this.arena.width, 4);
 
-    // Motion trails (draw before fighters)
+    // Motion trails
     this.renderer.drawTrails();
 
     // fighters
@@ -577,7 +601,6 @@ export class Fight {
       c.beginPath();
       c.arc(pr.x, pr.y, 10, 0, Math.PI*2);
       c.fill();
-      // Glow ring
       c.globalAlpha = 0.3;
       c.beginPath();
       c.arc(pr.x, pr.y, 16, 0, Math.PI*2);
@@ -596,6 +619,17 @@ export class Fight {
 
     // Damage numbers
     this.renderer.drawDamageNumbers(this.combat.damageNumbers);
+
+    // Win streak display during fight
+    if(this.streak > 0){
+      c.save();
+      c.setTransform(1,0,0,1,0,0);
+      c.textAlign = 'left';
+      c.font = '700 11px Orbitron, system-ui';
+      c.fillStyle = 'rgba(255,215,64,0.65)';
+      c.fillText(`🔥 ${this.streak} STREAK`, 16, this.renderer.h - 48);
+      c.restore();
+    }
 
     // Banner
     let banner = '';

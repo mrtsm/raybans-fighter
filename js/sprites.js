@@ -86,7 +86,38 @@ export const neonText = (ctx, text, x,y, { color='#7df9ff', glow=null, align='ce
   ctx.restore();
 };
 
-// --- SpriteManager (as requested) ---
+/**
+ * Remove white background from a sprite image, returning a new canvas
+ * with transparency where white pixels were.
+ */
+function removeWhiteBackground(img){
+  if(!img || !img.width) return img;
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, c.width, c.height);
+  const d = data.data;
+  for(let i = 0; i < d.length; i += 4){
+    const r = d[i], g = d[i+1], b = d[i+2];
+    // Calculate "whiteness" — how close to pure white
+    const brightness = (r + g + b) / 3;
+    const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+    if(brightness > 240 && saturation < 30){
+      // Near-white: make fully transparent
+      d[i+3] = 0;
+    } else if(brightness > 220 && saturation < 50){
+      // Slightly off-white: semi-transparent for smooth edges
+      const factor = (brightness - 220) / 20;
+      d[i+3] = Math.round(d[i+3] * (1 - factor * 0.8));
+    }
+  }
+  ctx.putImageData(data, 0, 0);
+  return c;
+}
+
+// --- SpriteManager ---
 export class SpriteManager {
   constructor() {
     this.sprites = {};
@@ -98,10 +129,18 @@ export class SpriteManager {
     const total = fighters.length * poses.length + 2;
     let done = 0;
     const bust = `?v=${Date.now()}`;
-    const load = (src) => new Promise((res) => {
+    const load = (src, removeWhite=false) => new Promise((res) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload = () => { done++; onProgress?.(done/total); res(img); };
+      img.onload = () => {
+        done++;
+        onProgress?.(done/total);
+        if(removeWhite){
+          res(removeWhiteBackground(img));
+        } else {
+          res(img);
+        }
+      };
       img.onerror = (e) => { console.warn('Sprite FAILED:', src, e); done++; onProgress?.(done/total); res(null); };
       img.src = src + bust;
     });
@@ -109,12 +148,14 @@ export class SpriteManager {
     for (const f of fighters) {
       this.sprites[f] = {};
       for (const p of poses) {
-        this.sprites[f][p] = await load(`assets/sprites/${f}/${p}.png`);
+        // Fighter sprites need white background removal
+        this.sprites[f][p] = await load(`assets/sprites/${f}/${p}.png`, true);
       }
     }
-    this.sprites.arena_bg = await load('assets/sprites/arena_bg.png');
-    this.sprites.title_bg = await load('assets/sprites/title_bg.png');
-    const ok = Object.entries(this.sprites).filter(([k,v]) => typeof v === 'object' && v !== null && !(v instanceof HTMLImageElement)).map(([k,v]) => [k, Object.values(v).filter(Boolean).length]);
+    // Backgrounds don't need white removal
+    this.sprites.arena_bg = await load('assets/sprites/arena_bg.png', false);
+    this.sprites.title_bg = await load('assets/sprites/title_bg.png', false);
+    const ok = Object.entries(this.sprites).filter(([k,v]) => typeof v === 'object' && v !== null && !(v instanceof HTMLImageElement) && !(v instanceof HTMLCanvasElement)).map(([k,v]) => [k, Object.values(v).filter(Boolean).length]);
     console.log('[Sprites] Loaded fighters:', ok, 'bg:', !!this.sprites.arena_bg);
     this.loaded = true;
   }

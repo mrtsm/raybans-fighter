@@ -56,6 +56,16 @@ export class Fighter {
     // Walk speed (px/s)
     this.walkSpeed = def.walkSpeed || 100;
 
+    // Daily mod flags
+    this._blockDisabled = false;
+    this._renderScale = 1.0;
+
+    // Scale modifier (for giant/tiny daily challenge)
+    this.scaleMul = 1.0;
+
+    // Gravity modifier (for low gravity daily challenge)
+    this.gravMul = 1.0;
+
     // stats
     this.stats = { antiAirHeavies:0, whiffPunishes:0, grabDamage:0, lightDamage:0, heavyDamage:0, specials:0, sigs:0, blocks:0, perfectDodges:0 };
 
@@ -121,6 +131,7 @@ export class Fighter {
   }
 
   startBlock(mode){
+    if(this._blockDisabled) return;
     this.blocking = mode;
     this.state = 'block';
   }
@@ -284,7 +295,7 @@ export class Fighter {
     return { hit:true, dmg };
   }
 
-  update(dt, arena){
+  update(dt, arena, gravMul){
     // last stand state
     this.lastStand = this.hpPct>0 && this.hpPct<0.2;
 
@@ -343,7 +354,7 @@ export class Fighter {
     }
 
     // movement physics
-    const g = 1500;
+    const g = 1500 * (gravMul || 1);
     if(!this.onGround){
       this.vy += g*dt;
       this.y += this.vy*dt;

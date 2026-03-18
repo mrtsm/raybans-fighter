@@ -7,26 +7,29 @@ const AI_PERSONALITIES = {
 };
 
 export class AI {
-  constructor({ difficulty='normal', fighterId='blaze' }){
+  constructor({ difficulty='normal', fighterId='blaze', streakBonus=0 }){
     this.difficulty = difficulty;
     this.fighterId = fighterId;
     this.personality = AI_PERSONALITIES[fighterId] || AI_PERSONALITIES.blaze;
 
+    // Streak bonus makes AI harder as win streak increases
+    const sb = streakBonus || 0;
+
     this.t = 0;
     this.cooldown = 0;
-    this.reactionMs = { easy:350, normal:200, hard:120, nightmare:80 }[difficulty] ?? 200;
-    this.specialChance = { easy:0.08, normal:0.16, hard:0.28, nightmare:0.38 }[difficulty] ?? 0.16;
-    this.aggression = this.personality.aggression * ({ easy:0.6, normal:0.85, hard:1.0, nightmare:1.15 }[difficulty] ?? 0.85);
+    this.reactionMs = Math.max(50, ({ easy:350, normal:200, hard:120, nightmare:80 }[difficulty] ?? 200) - sb * 200);
+    this.specialChance = Math.min(0.5, ({ easy:0.08, normal:0.16, hard:0.28, nightmare:0.38 }[difficulty] ?? 0.16) + sb * 0.3);
+    this.aggression = Math.min(1.2, this.personality.aggression * ({ easy:0.6, normal:0.85, hard:1.0, nightmare:1.15 }[difficulty] ?? 0.85) + sb * 0.3);
 
     // State machine
-    this.state = 'neutral'; // neutral | pressure | defense | punish | retreat
-    this.plan = []; // queued action sequence
+    this.state = 'neutral';
+    this.plan = [];
     this.planIndex = 0;
     this.planDelay = 0;
 
-    // Combo execution
-    this.comboChance = { easy:0.1, normal:0.3, hard:0.55, nightmare:0.75 }[difficulty] ?? 0.3;
-    this.blockChance = { easy:0.2, normal:0.4, hard:0.6, nightmare:0.8 }[difficulty] ?? 0.4;
+    // Combo execution — streak makes AI combo more
+    this.comboChance = Math.min(0.9, ({ easy:0.1, normal:0.3, hard:0.55, nightmare:0.75 }[difficulty] ?? 0.3) + sb * 0.4);
+    this.blockChance = Math.min(0.9, ({ easy:0.2, normal:0.4, hard:0.6, nightmare:0.8 }[difficulty] ?? 0.4) + sb * 0.3);
 
     // Pattern tracking
     this._opponentPatterns = { attack: 0, block: 0, dodge: 0, grab: 0 };
@@ -52,10 +55,7 @@ export class AI {
     if(this.cooldown>0){ this.cooldown-=dt; return []; }
     if(!self.canAct()) return [];
 
-    // Track opponent patterns
     this._trackPatterns(opp);
-
-    // Assess state
     this._assessState(self, opp);
 
     const dist = Math.abs(self.x - opp.x);
@@ -80,25 +80,21 @@ export class AI {
   _assessState(self, opp){
     const dist = Math.abs(self.x - opp.x);
 
-    // If opponent is attacking and we're close, defense
     if(opp.attack && dist < 100 && Math.random() < this.blockChance){
       this.state = 'defense';
       return;
     }
 
-    // If opponent is in recovery, punish
     if(opp.attack && opp.attackWindow().recovery && dist < 120){
       this.state = 'punish';
       return;
     }
 
-    // If we're low HP, retreat sometimes
     if(self.hpPct < 0.25 && Math.random() < 0.3){
       this.state = 'retreat';
       return;
     }
 
-    // If close and aggressive, pressure
     if(dist < 100 && Math.random() < this.aggression){
       this.state = 'pressure';
       return;
@@ -110,19 +106,16 @@ export class AI {
   _neutralPlan(self, opp, dist, context){
     const out = [];
 
-    // Anti-air
     if(!opp.onGround && dist < 120 && Math.random() < 0.4){
       out.push({ action:'heavy' });
       return this._delay(out);
     }
 
-    // Use special at range
     if(context.aiCanSpecial && dist > 120 && Math.random() < this.specialChance){
       out.push({ action:'special' });
       return this._delay(out);
     }
 
-    // Close in
     if(dist > 150){
       out.push({ action:(self.x<opp.x?'walk_right':'walk_left') });
       if(dist > 200 && Math.random() < 0.4){
@@ -131,7 +124,6 @@ export class AI {
       return this._delay(out);
     }
 
-    // Mid range - approach or poke
     if(dist > 80){
       if(Math.random() < this.aggression){
         out.push({ action:(self.x<opp.x?'walk_right':'walk_left') });
@@ -142,10 +134,8 @@ export class AI {
       return this._delay(out);
     }
 
-    // Close range mixup
     const r = Math.random();
     if(r < 0.15 && this._opponentPatterns.block > 0.4){
-      // Opponent blocks a lot, grab
       out.push({ action:'grab' });
     } else if(r < 0.35){
       out.push({ action:'light' });
@@ -161,7 +151,6 @@ export class AI {
   }
 
   _pressurePlan(self, opp, dist, context){
-    // Execute combos!
     if(Math.random() < this.comboChance && dist < 100){
       const combo = this.personality.comboStyle;
       this.plan = combo.map((action, i) => ({
@@ -177,7 +166,6 @@ export class AI {
       return [first];
     }
 
-    // Single attack with pressure
     const out = [];
     const r = Math.random();
     if(r < 0.3) out.push({ action:'light' });
@@ -191,11 +179,8 @@ export class AI {
 
   _defensePlan(self, opp, dist){
     const out = [];
-
-    // Block
     out.push({ action:'down_hold' });
 
-    // Counter-attack after blocking
     if(Math.random() < 0.5){
       this.plan = [
         { action: 'down_hold', delay: 0.2 },
@@ -212,7 +197,6 @@ export class AI {
     const out = [];
 
     if(dist < 80){
-      // Punish with combo
       if(Math.random() < this.comboChance){
         this.plan = [
           { action: 'light', delay: 0 },
@@ -232,12 +216,9 @@ export class AI {
 
   _retreatPlan(self, opp, dist){
     const out = [];
-
-    // Back away
     const awayDir = self.x < opp.x ? 'dash_left' : 'dash_right';
     out.push({ action: awayDir });
 
-    // Throw projectile if possible
     if(Math.random() < 0.3){
       out.push({ action:'special' });
     }

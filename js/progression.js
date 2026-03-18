@@ -43,7 +43,6 @@ export class Progression{
   }
 
   get playerLevel(){
-    // 1..50
     return clamp(1 + Math.floor(this.totalXp/2000), 1, 50);
   }
 
@@ -70,16 +69,13 @@ export class Progression{
     const prevRank = this.masteryRank(fighterId);
     f.xp += xp;
 
-    // highscores
     f.best = Math.max(f.best, score);
     s.overallBest = Math.max(s.overallBest, score);
 
-    // daily
     const t=todayKey();
     if(s.daily.date!==t){ s.daily={ date:t, best:0, completed:false }; }
     s.daily.best = Math.max(s.daily.best, score);
 
-    // first win of day
     if(win){
       if(s.meta.firstWinDate!==t){
         s.meta.firstWinDate=t;
@@ -87,7 +83,6 @@ export class Progression{
       }
     }
 
-    // won with
     if(win) s.wonWith[fighterId]=true;
 
     const newRank=this.masteryRank(fighterId);
@@ -95,10 +90,6 @@ export class Progression{
       events.push({type:'mastery', fighterId, rank:newRank});
     }
 
-    // meta achievements
-    if(['blaze','granite','shade','volt'].every(id=>this.masteryRank(id)!=='bronze')){
-      // (not used)
-    }
     if(['blaze','granite','shade','volt'].every(id=>this.masteryRank(id)>='silver')){
       events.push({type:'meta', kind:'silver_all'});
     }
@@ -106,7 +97,6 @@ export class Progression{
       events.push({type:'meta', kind:'won_all_fighters'});
     }
 
-    // player level events
     events.push({type:'player_level', level:this.playerLevel});
 
     this._checkAchievements(events);
@@ -143,8 +133,8 @@ export class Progression{
     }
   }
 
+  // Legacy dailyChallenge() for backward compatibility
   dailyChallenge(){
-    // deterministic pick from list
     const list=[
       { id:'glass', name:'Glass Cannon', desc:'Both deal 2× damage, half health.', mod:{ dmgMul:2, hpMul:0.5 } },
       { id:'rush', name:'Momentum Rush', desc:'Momentum builds 3× faster.', mod:{ momentumMul:3 } },

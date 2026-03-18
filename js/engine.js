@@ -27,10 +27,11 @@ export function boot(canvas){
     t: 0,
     setMode(mode, payload={}){
       this.mode = mode;
+      if(mode === 'splash') ui.enterSplash();
       if(mode === 'menu') ui.enterMenu();
       if(mode === 'select') ui.enterSelect(payload);
       if(mode === 'fight'){
-        this.fight = new Fight({ renderer, input, audio, progression, ...payload });
+        this.fight = new Fight({ renderer, input, audio, progression, sprites, ...payload });
         this.fight.start();
       }
       if(mode === 'results') ui.enterResults(payload);
@@ -49,7 +50,8 @@ export function boot(canvas){
     } catch(e) { console.error('Sprite load error:', e); }
     await audioPromise;
     assetsReady = true;
-    game.setMode('menu');
+    // Start with splash intro, NOT menu directly
+    game.setMode('splash');
   })();
 
   let acc = 0;
@@ -109,6 +111,7 @@ export function boot(canvas){
     while(acc >= DT){
       game.t += DT;
       input.update(DT);
+      sprites.tick(DT);
       if(game.mode === 'fight' && game.fight){
         const out = game.fight.update(DT);
         if(out?.type === 'match_end'){

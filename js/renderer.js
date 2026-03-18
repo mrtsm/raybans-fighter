@@ -68,7 +68,7 @@ export class Renderer{
     c.clearRect(0,0,this.w,this.h);
   }
 
-  beginScene(){
+  beginScene(arenaBg){
     const c = this.ctx;
 
     // render-only freeze
@@ -83,7 +83,7 @@ export class Renderer{
     } else {
       this.clear();
 
-      const bg = this.sprites?.sprites?.arena_bg;
+      const bg = arenaBg || this.sprites?.sprites?.arena_bg;
       if(bg){
         c.save();
         c.imageSmoothingEnabled = true;
@@ -588,6 +588,66 @@ export class Renderer{
       c.restore();
     }
 
+    // Win streak counter
+    if(hud.winStreak && hud.winStreak.current > 0){
+      const ws = hud.winStreak;
+      c.save();
+      c.textAlign='left';
+      c.textBaseline='top';
+
+      // Streak badge
+      const badgeX = pad;
+      const badgeY = top + barH + 28;
+
+      // Background pill
+      const streakColors = {
+        'Warming Up': 'rgba(255,255,255,0.15)',
+        'On Fire': 'rgba(255,140,0,0.25)',
+        'Unstoppable': 'rgba(255,60,60,0.25)',
+        'LEGENDARY': 'rgba(255,215,64,0.35)',
+      };
+      const bgColor = streakColors[ws.title] || 'rgba(255,255,255,0.15)';
+      const textColor = ws.current >= 10 ? 'rgba(255,215,64,0.95)' :
+                        ws.current >= 5 ? 'rgba(255,100,100,0.95)' :
+                        ws.current >= 3 ? 'rgba(255,180,60,0.95)' :
+                        'rgba(255,255,255,0.75)';
+
+      const streakText = `🔥 ${ws.current} ${ws.title}`;
+      c.font = '700 10px Orbitron, system-ui';
+      const tw = c.measureText(streakText).width;
+      fillRoundRect(c, badgeX, badgeY, tw + 12, 16, 8, bgColor);
+      c.fillStyle = textColor;
+      if(ws.current >= 10){
+        c.shadowColor = 'rgba(255,215,64,0.8)';
+        c.shadowBlur = 10;
+      }
+      c.fillText(streakText, badgeX + 6, badgeY + 3);
+
+      // Show multiplier if active
+      if(ws.multiplier > 1){
+        c.textAlign = 'right';
+        c.fillStyle = 'rgba(255,215,64,0.85)';
+        c.font = '800 10px Orbitron, system-ui';
+        c.fillText(`${ws.multiplier}× SCORE`, this.w - pad, badgeY + 3);
+      }
+
+      c.restore();
+    }
+
+    // Daily challenge modifier display
+    if(hud.dailyMod){
+      c.save();
+      c.textAlign='center';
+      c.textBaseline='top';
+      const modY = top + barH + 28;
+      c.font = '800 11px Orbitron, system-ui';
+      c.fillStyle = 'rgba(255,215,64,0.9)';
+      c.shadowColor = 'rgba(255,215,64,0.6)';
+      c.shadowBlur = 10;
+      c.fillText(`⚡ ${hud.dailyMod}`, this.w/2, modY);
+      c.restore();
+    }
+
     // banner
     if(hud.banner){
       c.save();
@@ -654,11 +714,20 @@ export class Renderer{
       (f.attack ? 'attacking' : 'idle')
     );
     const attackKind = f.attack?.kind;
-    const im = this.sprites?.get?.(fighterId, state, attackKind);
+    // Calculate attack progress for animation frames
+    let attackProgress = undefined;
+    if (f.attack) {
+      const totalF = f.attack.startupF + f.attack.activeF + f.attack.recoveryF;
+      attackProgress = totalF > 0 ? f.attackF / totalF : 0;
+    } else if (f.charging) {
+      attackProgress = f.chargePct;
+    }
+    const im = this.sprites?.get?.(fighterId, state, attackKind, attackProgress);
 
     const footX = f.x;
     const footY = f.y+110;
-    const drawH = (state==='jumping') ? 160 : 170;
+    const scale = f._renderScale || f.scaleMul || 1.0;
+    const drawH = ((state==='jumping') ? 160 : 170) * scale;
     const drawW = drawH;
 
     // Motion trail for attacks and dashes

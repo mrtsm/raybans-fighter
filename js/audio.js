@@ -11,29 +11,53 @@ const MUSIC = {
 };
 
 const SFX = {
-  sfx_light:'assets/sfx/light_hit.mp3',
-  sfx_heavy:'assets/sfx/heavy_hit.mp3',
+  // New high-quality hit sounds
+  sfx_light:'assets/sfx/hit_light.mp3',
+  sfx_heavy:'assets/sfx/hit_heavy.mp3',
+  sfx_special_hit:'assets/sfx/hit_special.mp3',
+
+  // Legacy aliases (some code references these)
+  sfx_hit_light:'assets/sfx/hit_light.mp3',
+  sfx_hit_heavy:'assets/sfx/hit_heavy.mp3',
+
   sfx_block:'assets/sfx/block.mp3',
   sfx_grab:'assets/sfx/grab.mp3',
   sfx_dodge:'assets/sfx/dodge.mp3',
   sfx_perfectdodge:'assets/sfx/perfect_dodge.mp3',
   sfx_charge:'assets/sfx/charge.mp3',
+  sfx_whoosh:'assets/sfx/whoosh.mp3',
+
+  // Fighter-specific specials
   sfx_fire:'assets/sfx/fire_special.mp3',
   sfx_rock:'assets/sfx/rock_special.mp3',
   sfx_lightning:'assets/sfx/lightning_special.mp3',
   sfx_shadow:'assets/sfx/shadow_special.mp3',
+
   sfx_signature:'assets/sfx/signature.mp3',
-  sfx_round:'assets/sfx/bell.mp3',
+
+  // Round / match events
+  sfx_round:'assets/sfx/round_start.mp3',
+  sfx_bell:'assets/sfx/bell.mp3',
   sfx_ko:'assets/sfx/ko.mp3',
+  sfx_guardbreak:'assets/sfx/guard_break.mp3',
+
+  // Intro splash
+  sfx_intro_slam:'assets/sfx/intro_slam.mp3',
+
+  // Combo announcer
+  sfx_combo3:'assets/sfx/combo_3.mp3',
+  sfx_combo5:'assets/sfx/combo_3.mp3',   // reuse with pitch shift
+  sfx_combo7:'assets/sfx/combo_3.mp3',   // reuse with pitch shift
+
+  // UI
   sfx_select:'assets/sfx/menu_select.mp3',
-  sfx_nav:'assets/sfx/menu_nav.mp3',
+  sfx_nav:'assets/sfx/menu_move.mp3',
+  sfx_menu_move:'assets/sfx/menu_move.mp3',
+
+  // Progression
   sfx_xp:'assets/sfx/xp_gain.mp3',
   sfx_level:'assets/sfx/level_up.mp3',
   sfx_ach:'assets/sfx/achievement.mp3',
-  sfx_guardbreak:'assets/sfx/heavy_hit.mp3',
-  sfx_combo3:'assets/sfx/menu_select.mp3',
-  sfx_combo5:'assets/sfx/menu_select.mp3',
-  sfx_combo7:'assets/sfx/menu_select.mp3',
 };
 
 const VOICES = {
@@ -95,13 +119,19 @@ export class AudioManager{
 
   async loadAll(){
     const entries = Object.entries({ ...MUSIC, ...SFX, ...VOICES });
-    await Promise.all(entries.map(async ([k,url])=>{
+    // Deduplicate URLs to avoid double-loading
+    const urlToKeys = new Map();
+    for(const [k,url] of entries){
+      if(!urlToKeys.has(url)) urlToKeys.set(url, []);
+      urlToKeys.get(url).push(k);
+    }
+    await Promise.all([...urlToKeys.entries()].map(async ([url, keys])=>{
       try{
         const r = await fetch(url);
         if(!r.ok) return;
         const ab = await r.arrayBuffer();
         const buf = await this.ctx.decodeAudioData(ab.slice(0));
-        this.buffers.set(k, buf);
+        for(const k of keys) this.buffers.set(k, buf);
       } catch { /* missing assets are OK (dev) */ }
     }));
   }
@@ -161,6 +191,14 @@ export class AudioManager{
     this.musicGain.gain.setValueAtTime(0, now);
     this.musicGain.gain.linearRampToValueAtTime(this.master.music, now+fade);
     src.start();
+  }
+
+  stopMusic(){
+    if(this.musicNode){
+      try{ this.musicNode.stop(); }catch{}
+      this.musicNode = null;
+      this.musicKey = null;
+    }
   }
 
   // Music filter for slowmo effect
