@@ -769,7 +769,7 @@ export class Renderer{
     const footX = f.x;
     const footY = f.y+110;
     const scale = f._renderScale || f.scaleMul || 1.0;
-    const drawH = ((state==='jumping') ? 160 : 170) * scale;
+    const drawH = ((state==='jumping') ? 180 : 200) * scale;
     const drawW = drawH;
 
     // Motion trail for attacks and dashes

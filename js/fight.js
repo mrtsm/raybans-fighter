@@ -144,7 +144,7 @@ export class Fight {
   }
 
   _resetRoundPositions(){
-    this.p1.x=120; this.p2.x=480;
+    this.p1.x=130; this.p2.x=470;
     this.p1.y=this.arena.floorY; this.p2.y=this.arena.floorY;
     this.p1.onGround=true; this.p2.onGround=true;
     this.p1.vx=this.p2.vx=0;
@@ -254,7 +254,7 @@ export class Fight {
     this.p2.update(effectiveDt, this.arena, this._gravMul);
 
     // Push fighters apart — prevent passing through each other
-    const MIN_SEPARATION = 80; // minimum distance between fighter centers
+    const MIN_SEPARATION = 100; // minimum distance between fighter centers
     const dx = this.p2.x - this.p1.x;
     const dist = Math.abs(dx);
     if(dist < MIN_SEPARATION){
