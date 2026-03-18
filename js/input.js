@@ -118,6 +118,16 @@ export class Input {
   update(dt){
     this.now += dt;
 
+    // Auto-release keys that haven't had a keyup event in 200ms
+    // (Meta glasses armband sometimes doesn't fire keyup)
+    for(const [code, downTime] of this.keyDownAt.entries()){
+      if(this.keys.has(code) && (this.now - downTime) > 0.2){
+        this.keys.delete(code);
+        this.keyDownAt.delete(code);
+        if(code === 'ArrowDown') this._push('down_release');
+      }
+    }
+
     // translate keyboard down-hold to block state
     if(this.keys.has('ArrowDown')){
       this._push('down_hold');

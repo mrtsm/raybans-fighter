@@ -328,7 +328,6 @@ export class Fight {
 
       if(a==='light'){
         if(!this.p1.onGround) { this.p1.startAttack('air'); this.lastMove.lastWasJumpAtk=true; }
-        else if(this.p1.crouching) { this.p1.startAttack('low'); this.lastMove.wasJumpToLow=this.lastMove.lastWasJumpAtk; this.lastMove.lastWasJumpAtk=false; }
         else { this.p1.startAttack('light'); this.lastMove.lastWasJumpAtk=false; }
       }
       if(a==='heavy'){
