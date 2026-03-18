@@ -6,10 +6,10 @@
     "CENTER": 40
   },
   "issues": [
-    "INCONSISTENT: blaze has mixed facings: {'LEFT', 'CENTER'}",
-    "INCONSISTENT: granite has mixed facings: {'LEFT', 'CENTER'}",
-    "INCONSISTENT: shade has mixed facings: {'LEFT', 'CENTER'}",
-    "INCONSISTENT: volt has mixed facings: {'LEFT', 'CENTER'}"
+    "INCONSISTENT: blaze has mixed facings: {'CENTER', 'LEFT'}",
+    "INCONSISTENT: granite has mixed facings: {'CENTER', 'LEFT'}",
+    "INCONSISTENT: shade has mixed facings: {'CENTER', 'LEFT'}",
+    "INCONSISTENT: volt has mixed facings: {'CENTER', 'LEFT'}"
   ],
   "pass": false,
   "details": {
