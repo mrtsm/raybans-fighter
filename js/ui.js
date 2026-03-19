@@ -333,20 +333,26 @@ export class UI {
         return; // ignore all inputs during grace period
       }
 
+      // Track if we already cycled for this swipe gesture
+      if(!this._selectSwipeDone) this._selectSwipeDone = false;
+
       for(const a of acts){
         if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); return; }
         if(a==='dash_left') { this._cycleFighter(-1); }
         if(a==='dash_right') { this._cycleFighter(+1); }
         if(a==='walk_left_hold') {
-          if(this._selectNavCooldown <= 0) { this._cycleFighter(-1); this._selectNavCooldown = 0.22; }
+          if(!this._selectSwipeDone) { this._cycleFighter(-1); this._selectSwipeDone = true; }
         }
         if(a==='walk_right_hold') {
-          if(this._selectNavCooldown <= 0) { this._cycleFighter(+1); this._selectNavCooldown = 0.22; }
+          if(!this._selectSwipeDone) { this._cycleFighter(+1); this._selectSwipeDone = true; }
         }
         if(a==='jump') { this._cycleDifficulty(+1); }
         if(a==='crouch' || a==='down_hold') { this._cycleDifficulty(-1); }
         if(a==='ui_confirm' || a==='light') { this.audio.play('sfx_select'); this._startFight(); }
       }
+      // Reset swipe flag when no walk actions are queued (swipe ended)
+      const hasWalk = acts.some(a => a === 'walk_left_hold' || a === 'walk_right_hold');
+      if(!hasWalk) this._selectSwipeDone = false;
     }
 
     // ===== RESULTS SCREEN =====

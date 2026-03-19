@@ -53,6 +53,8 @@ export function boot(canvas){
       audio.ctx.resume().catch(()=>{});
     }
     audio.playMusic('music_menu');
+    // Clear any queued input so this click doesn't carry through to menus
+    input.consume();
     game.setMode('splash');
     canvas.removeEventListener('click', startGame);
     canvas.removeEventListener('pointerdown', startGame);
