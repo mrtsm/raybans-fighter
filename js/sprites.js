@@ -245,13 +245,9 @@ export class SpriteManager {
     // Animation frame selection based on attack progress
     if (state === 'attacking' && attackProgress !== undefined) {
       if (attackKind === 'heavy') {
-        if(attackProgress < 0.3 && f.heavy_windup) return f.heavy_windup;
-        if(attackProgress > 0.6 && f.heavy_followthrough) return f.heavy_followthrough;
         return f.heavy;
       }
       if (attackKind === 'light') {
-        if(attackProgress < 0.3 && f.light_windup) return f.light_windup;
-        if(attackProgress > 0.6 && f.light_followthrough) return f.light_followthrough;
         return f.light;
       }
       if (attackKind === 'air') return f.jump;
@@ -276,12 +272,8 @@ export class SpriteManager {
       return f.idle;
     }
 
-    // Charging uses special animation frames
+    // Charging uses special sprite
     if (state === 'charging') {
-      if(attackProgress !== undefined){
-        if(attackProgress < 0.5 && f.special_windup) return f.special_windup;
-        if(attackProgress >= 0.5 && f.special_followthrough) return f.special_followthrough;
-      }
       return f.special;
     }
 

@@ -795,20 +795,21 @@ export class Renderer{
         }
       }
 
-      // Attack: squash/stretch
+      // Attack: subtle lunge forward
       if(state === 'attacking' && f.attack){
         const totalF = f.attack.startupF + f.attack.activeF + f.attack.recoveryF;
         const progress = f.attackF / totalF;
-        if(progress < 0.3){
-          // Wind up: stretch tall
-          c.scale(0.92, 1.08);
-        } else if(progress < 0.55){
-          // Swing: squash wide
-          c.scale(1.18, 0.85);
+        if(progress < 0.25){
+          // Wind up: pull back slightly
+          c.translate(f.facing * -4, 0);
+        } else if(progress < 0.5){
+          // Strike: lunge forward
+          c.translate(f.facing * 8, 0);
+          c.scale(1.05, 0.97);
         } else {
-          // Recovery: return to normal
-          const t = (progress - 0.55) / 0.45;
-          c.scale(lerp(1.18, 1.0, t), lerp(0.85, 1.0, t));
+          // Recovery: ease back
+          const t = (progress - 0.5) / 0.5;
+          c.translate(f.facing * lerp(8, 0, t), 0);
         }
       }
 
