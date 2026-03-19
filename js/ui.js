@@ -186,6 +186,7 @@ export class UI {
   enterMenu(){
     this._startTransition('menu');
     this._hsView = false;
+    this._menuInputGrace = 0.3;
     this.audio.playMusic('music_menu');
   }
 
@@ -258,6 +259,9 @@ export class UI {
 
     // ===== MENU =====
     if(this.screen==='menu'){
+      // Grace period after entering menu
+      if(this._menuInputGrace > 0) { this._menuInputGrace -= dt; return; }
+
       if(this._hsView){
         // High score view — any input goes back
         for(const a of acts){
@@ -330,7 +334,7 @@ export class UI {
       }
 
       for(const a of acts){
-        if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); }
+        if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); return; }
         if(a==='dash_left') { this._cycleFighter(-1); }
         if(a==='dash_right') { this._cycleFighter(+1); }
         if(a==='walk_left_hold') {
@@ -391,8 +395,8 @@ export class UI {
         }
       } else {
         for(const a of acts){
-          if(a==='ui_confirm' || a==='light') { this.audio.play('sfx_select'); this.navigate?.('select'); }
-          if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); }
+          if(a==='ui_confirm' || a==='light') { this.audio.play('sfx_select'); this.navigate?.('select'); return; }
+          if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); return; }
         }
       }
     }
