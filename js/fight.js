@@ -161,6 +161,16 @@ export class Fight {
     this.p2.momentum = 0;
     this.p1.charging = false;
     this.p2.charging = false;
+    // Reset parry/push block state
+    this.p1.parryWindowF = this.p2.parryWindowF = 0;
+    this.p1.parryCooldownF = this.p2.parryCooldownF = 0;
+    this.p1.parryWhiffF = this.p2.parryWhiffF = 0;
+    this.p1.parryStunF = this.p2.parryStunF = 0;
+    this.p1.parrySuccess = this.p2.parrySuccess = false;
+    this.p1.parrySuccessT = this.p2.parrySuccessT = 0;
+    this.p1.pushBlockIframesF = this.p2.pushBlockIframesF = 0;
+    this.p1.pushBlockCooldownF = this.p2.pushBlockCooldownF = 0;
+    this.p1._parryBlockFallbackT = this.p2._parryBlockFallbackT = 0;
     this._koPhase = false;
     this._koWinner = null;
     this.timer = 30;
@@ -237,6 +247,12 @@ export class Fight {
     }
 
     // ── PROCESS PLAYER INPUT ──
+    // Track recent hitstun for push block buffer (10 frames after hitstun ends)
+    if (this.p1.hitstunF > 0) {
+      this.p1._recentHitstunF = 10;
+    } else if (this.p1._recentHitstunF > 0) {
+      this.p1._recentHitstunF--;
+    }
     const acts = this.input.consume().map(e => e.action);
     this._frameActs = acts;
     this._processPlayerInput(acts);
@@ -317,9 +333,15 @@ export class Fight {
         continue;
       }
 
-      // Block (down hold)
+      // Block / Parry (down hold)
       if (a === 'down_hold') {
         if (this.mods.noBlock) continue;
+        // Try parry first (only during play phase)
+        if (this.phase === 'play' && this.p1.startParry()) {
+          // Parry started — don't block
+          continue;
+        }
+        // Fallback to block if parry on cooldown or can't parry
         this.p1.startBlock('stand');
         continue;
       }
@@ -353,9 +375,34 @@ export class Fight {
         this.lastMove.lastWasJumpAtk = false;
       }
 
-      // Right click → special (instant, armband)
+      // Right click → context-sensitive: push block if pressured, special if idle
       if (a === 'special') {
-        this._trySpecialOrSig(this.p1, this.p2, true, 0.6);
+        // Check if in hitstun or blocking — push block!
+        const recentHitstun = this.p1.hitstunF > 0 || this.p1.state === 'hit';
+        const isBlocking = this.p1.blocking !== 'none' || this.p1.state === 'block';
+        const justExitedHitstun = this.p1._recentHitstunF > 0; // buffer window
+
+        if (recentHitstun || isBlocking || justExitedHitstun) {
+          // Push block attempt
+          if (this.p1.startPushBlock()) {
+            // Push opponent back 80px
+            const pushDir = this.p1.facing; // push in the direction we're facing
+            this.p2.vx += pushDir * 500; // velocity-based push
+            this.p2.x += pushDir * 80;
+            this.p2.x = Math.max(this.arena.leftWall, Math.min(this.arena.rightWall, this.p2.x));
+
+            // Visual + audio
+            this.audio.play('sfx_block', { vol: 1.0, rate: 0.7 });
+            this.renderer.doShake(6, 0.15);
+            this.renderer.doFreeze(2);
+
+            // Blue shockwave effect
+            this.renderer.addPushBlockEffect(this.p1.x, this.p1.y - 50, pushDir);
+          }
+        } else {
+          // Normal special attack
+          this._trySpecialOrSig(this.p1, this.p2, true, 0.6);
+        }
       }
 
       // UI
@@ -376,6 +423,22 @@ export class Fight {
         if (this.mods.noBlock) continue;
         this.p2.startBlock('stand');
         this._aiBlockTimer = 0.3;
+        continue;
+      }
+      if (a === 'parry') {
+        this.p2.startParry();
+        continue;
+      }
+      if (a === 'push_block') {
+        if (this.p2.startPushBlock()) {
+          const pushDir = this.p2.facing;
+          this.p1.vx += pushDir * 500;
+          this.p1.x += pushDir * 80;
+          this.p1.x = Math.max(this.arena.leftWall, Math.min(this.arena.rightWall, this.p1.x));
+          this.audio.play('sfx_block', { vol: 1.0, rate: 0.7 });
+          this.renderer.doShake(6, 0.15);
+          this.renderer.addPushBlockEffect(this.p2.x, this.p2.y - 50, pushDir);
+        }
         continue;
       }
       if (a === 'walk_left')  { this.p2.walk(-1); continue; }
@@ -449,6 +512,13 @@ export class Fight {
   }
 
   _onCombatEvent(ev, attacker, defender, isPlayer) {
+    if (ev.type === 'parried') {
+      // Defender parried the attacker
+      this._momentumGain(ev.defender, 20); // reward for parrying
+      this._momentumDrain(ev.attacker, 10);
+      return;
+    }
+
     if (ev.type === 'hit') {
       this._momentumGain(attacker, 8);
       if (ev.whiffPunish) {
@@ -719,6 +789,8 @@ export class Fight {
     // Effects
     this.renderer.drawHitSparks();
     this.renderer.drawParticles();
+    this.renderer.drawParryEffects(1/60);
+    this.renderer.drawPushBlockEffects(1/60);
     this.renderer.drawComboCounter();
     this.renderer.drawDamageNumbers(this.combat.damageNumbers);
 

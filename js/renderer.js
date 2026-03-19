@@ -59,6 +59,12 @@ export class Renderer{
       flashT: 0,
     };
 
+    // Parry effects
+    this._parryEffects = []; // { x, y, t, maxT }
+
+    // Push block effects
+    this._pushBlockEffects = []; // { x, y, dir, t, maxT }
+
     // Visual hit-freeze
     this._freezeFrames = 0;
 
@@ -749,6 +755,7 @@ export class Renderer{
       f.state==='victory' ? 'victory' :
       f.state==='ko' ? 'ko' :
       (f.hitstunF>0 || f.state==='hit') ? 'hitstun' :
+      f.state==='parry' ? 'blocking' :
       (f.blocking!=='none' || f.state==='block') ? 'blocking' :
       (!f.onGround || f.state==='jump') ? 'jumping' :
       (f.crouching || f.state==='crouch') ? 'crouching' :
@@ -821,6 +828,19 @@ export class Renderer{
         c.rotate(0.06 * Math.sin(f.hitstunF * 3));
       }
 
+      // Parry stance: brace animation
+      if(f.state === 'parry'){
+        c.translate(0, 4); // slight crouch
+        c.scale(1.05, 0.95); // widen stance
+      }
+
+      // Parry stun (attacker got parried): wobble
+      if(f.parryStunF > 0){
+        const wobble = Math.sin(f.parryStunF * 4) * 0.1;
+        c.rotate(wobble);
+        c.translate((Math.random() - 0.5) * 6, 0);
+      }
+
       // Dash: lean forward + stretch
       if(f.state === 'dash'){
         c.scale(1.2, 0.9);
@@ -836,6 +856,12 @@ export class Renderer{
         const tilt = Math.min(f.stateT * 3, 0.4);
         c.rotate(tilt);
         c.translate(0, Math.min(f.stateT * 20, 10));
+      }
+
+      // Parry success: golden glow around fighter
+      if(f.parrySuccess && f.parrySuccessT > 0){
+        c.shadowColor = 'rgba(255, 215, 64, 0.95)';
+        c.shadowBlur = 30;
       }
 
       // Last stand: red pulse glow
@@ -920,7 +946,112 @@ export class Renderer{
     c.font = '11px monospace';
     c.fillStyle = '#0f0';
     c.textAlign = 'left';
-    c.fillText(`P1: x=${Math.round(p1.x)} state=${p1.state} atk=${p1.attack?.kind||'-'} hs=${p1.hitstunF} face=${p1.facing}`, 10, this.h - 10);
+    const parryInfo = p1.parryWindowF > 0 ? `parry=${p1.parryWindowF}` : (p1.parryCooldownF > 0 ? `pcd=${p1.parryCooldownF}` : '');
+    c.fillText(`P1: x=${Math.round(p1.x)} st=${p1.state} atk=${p1.attack?.kind||'-'} hs=${p1.hitstunF} mom=${p1.momentum} ${parryInfo}`, 10, this.h - 10);
     c.restore();
+  }
+
+  // ── Parry Effect: golden burst ──
+  addParryEffect(x, y) {
+    this._parryEffects.push({ x, y, t: 0.35, maxT: 0.35 });
+  }
+
+  drawParryEffects(dt) {
+    const c = this.ctx;
+    for (let i = this._parryEffects.length - 1; i >= 0; i--) {
+      const e = this._parryEffects[i];
+      e.t -= dt;
+      if (e.t <= 0) { this._parryEffects.splice(i, 1); continue; }
+
+      const progress = 1 - (e.t / e.maxT);
+      const radius = 20 + progress * 60;
+      const alpha = 1 - progress;
+
+      c.save();
+      c.globalCompositeOperation = 'screen';
+
+      // Golden ring
+      c.strokeStyle = `rgba(255, 215, 64, ${alpha})`;
+      c.lineWidth = 4 - progress * 3;
+      c.shadowColor = 'rgba(255, 215, 64, 0.9)';
+      c.shadowBlur = 20;
+      c.beginPath();
+      c.arc(e.x, e.y, radius, 0, Math.PI * 2);
+      c.stroke();
+
+      // Inner glow
+      const grad = c.createRadialGradient(e.x, e.y, 0, e.x, e.y, radius * 0.6);
+      grad.addColorStop(0, `rgba(255, 235, 128, ${alpha * 0.6})`);
+      grad.addColorStop(1, `rgba(255, 215, 64, 0)`);
+      c.fillStyle = grad;
+      c.beginPath();
+      c.arc(e.x, e.y, radius * 0.6, 0, Math.PI * 2);
+      c.fill();
+
+      // Sparks
+      for (let s = 0; s < 6; s++) {
+        const angle = (s / 6) * Math.PI * 2 + progress * 2;
+        const sparkR = radius * 0.8;
+        const sx = e.x + Math.cos(angle) * sparkR;
+        const sy = e.y + Math.sin(angle) * sparkR;
+        c.fillStyle = `rgba(255, 255, 200, ${alpha * 0.8})`;
+        c.beginPath();
+        c.arc(sx, sy, 2, 0, Math.PI * 2);
+        c.fill();
+      }
+
+      c.restore();
+    }
+  }
+
+  // ── Push Block Effect: blue shockwave ──
+  addPushBlockEffect(x, y, dir) {
+    this._pushBlockEffects.push({ x, y, dir, t: 0.3, maxT: 0.3 });
+  }
+
+  drawPushBlockEffects(dt) {
+    const c = this.ctx;
+    for (let i = this._pushBlockEffects.length - 1; i >= 0; i--) {
+      const e = this._pushBlockEffects[i];
+      e.t -= dt;
+      if (e.t <= 0) { this._pushBlockEffects.splice(i, 1); continue; }
+
+      const progress = 1 - (e.t / e.maxT);
+      const alpha = 1 - progress;
+      const width = 30 + progress * 80;
+      const height = 100;
+
+      c.save();
+      c.globalCompositeOperation = 'screen';
+
+      // Blue shockwave arc
+      const cx = e.x + e.dir * (progress * 60);
+      const cy = e.y;
+
+      // Shockwave lines
+      for (let l = 0; l < 3; l++) {
+        const offset = (l - 1) * 12;
+        const lx = cx + e.dir * (l * 8);
+        c.strokeStyle = `rgba(64, 160, 255, ${alpha * (1 - l * 0.25)})`;
+        c.lineWidth = 3 - l;
+        c.shadowColor = 'rgba(64, 160, 255, 0.8)';
+        c.shadowBlur = 15;
+        c.beginPath();
+        c.moveTo(lx, cy - height / 2 + offset);
+        c.quadraticCurveTo(lx + e.dir * width * 0.3, cy, lx, cy + height / 2 + offset);
+        c.stroke();
+      }
+
+      // Central flash
+      const grad = c.createRadialGradient(e.x, e.y, 0, e.x, e.y, 40);
+      grad.addColorStop(0, `rgba(128, 200, 255, ${alpha * 0.5})`);
+      grad.addColorStop(1, `rgba(64, 160, 255, 0)`);
+      c.fillStyle = grad;
+      c.beginPath();
+      c.arc(e.x, e.y, 40, 0, Math.PI * 2);
+      c.fill();
+
+      c.restore();
+    }
   }
 }

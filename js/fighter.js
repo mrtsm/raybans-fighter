@@ -64,6 +64,22 @@ export class Fighter {
     this.shieldT = 0;
     this.shieldHits = 0;
 
+    // Parry
+    this.parryWindowF = 0;    // frames remaining in parry window (active parry detection)
+    this.parryCooldownF = 0;  // frames until next parry allowed
+    this.parrySuccess = false; // true when parry lands (for renderer glow)
+    this.parrySuccessT = 0;   // timer (seconds) for parry glow visual
+    this.parryWhiffF = 0;     // vulnerability frames after failed parry (can't block)
+    this.parryStunF = 0;      // frames attacker is stunned after being parried
+
+    // Push block
+    this.pushBlockIframesF = 0;  // invincibility frames after push block
+    this.pushBlockCooldownF = 0; // cooldown after push block
+
+    // Internal timers
+    this._parryBlockFallbackT = 0; // block fallback after failed parry
+    this._recentHitstunF = 0; // frames since hitstun ended (for push block buffer)
+
     // Visual
     this.lastStand = false;
     this._renderScale = def.spriteScale || 1.0;
@@ -117,6 +133,7 @@ export class Fighter {
     return this.hitstunF <= 0
       && !this.attack
       && !this.charging
+      && this.parryStunF <= 0
       && this.state !== 'ko'
       && this.state !== 'victory'
       && !this.guardBroken;
@@ -173,6 +190,49 @@ export class Fighter {
   stopBlock() {
     this.blocking = 'none';
     if (this.state === 'block') this.state = 'idle';
+  }
+
+  // ── Parry ──
+
+  startParry() {
+    // Can't parry during cooldown, KO, victory, or while attacking
+    if (this.parryCooldownF > 0) return false;
+    if (this.state === 'ko' || this.state === 'victory') return false;
+    if (this.attack) return false;
+
+    // Start parry window: 12 frames (~200ms, generous for armband latency)
+    this.parryWindowF = 12;
+    this.parryCooldownF = 30; // 0.5s cooldown at 60fps
+    this.parrySuccess = false;
+    this.blocking = 'none'; // Not blocking during parry attempt
+    this.state = 'parry';
+    this.stateT = 0;
+    return true;
+  }
+
+  onParrySuccess() {
+    // Called when a parry lands
+    this.parrySuccess = true;
+    this.parrySuccessT = 0.4; // golden glow duration
+    this.parryWindowF = 0;
+    this.hitstunF = 0;
+    this.state = 'idle';
+  }
+
+  // ── Push Block ──
+
+  startPushBlock() {
+    // Costs 15 momentum
+    if (this.momentum < 15) return false;
+    if (this.pushBlockCooldownF > 0) return false;
+
+    this.momentum -= 15;
+    this.pushBlockIframesF = 6;  // brief invincibility
+    this.pushBlockCooldownF = 30; // 0.5s cooldown
+    this.hitstunF = 0;           // end hitstun immediately
+    this.blocking = 'none';
+    this.state = 'idle';
+    return true;
   }
 
   // ── Charging (special charge for compatibility) ──
@@ -242,10 +302,26 @@ export class Fighter {
   takeHit({ dmg, type, from, isChip = false }) {
     if (this.state === 'ko') return { hit: false };
 
+    // Push block i-frames
+    if (this.pushBlockIframesF > 0) {
+      return { hit: false, dodged: true, pushBlockIframes: true };
+    }
+
     // Dash i-frames
     if (this.dashIframesF > 0) {
       this.stats.perfectDodges++;
       return { hit: false, dodged: true, perfect: true };
+    }
+
+    // PARRY CHECK — if in parry window, parry succeeds!
+    if (this.parryWindowF > 0 && this.state === 'parry') {
+      this.onParrySuccess();
+      return { hit: false, parried: true, from };
+    }
+
+    // Parry whiff vulnerability — can't block during whiff frames
+    if (this.parryWhiffF > 0) {
+      return this._applyHit(dmg, type, from);
     }
 
     // Dash armor
@@ -330,6 +406,62 @@ export class Fighter {
       this.hitstunF--;
       if (this.hitstunF <= 0 && this.state === 'hit') this.state = 'idle';
     }
+
+    // Parry window countdown
+    if (this.parryWindowF > 0) {
+      this.parryWindowF--;
+      if (this.parryWindowF <= 0 && this.state === 'parry') {
+        // Parry window expired without hit — vulnerability gap then block fallback
+        this.parryWhiffF = 5; // 5 frames (~83ms) of vulnerability (can't block)
+        this.state = 'idle';
+      }
+    }
+
+    // Parry whiff vulnerability
+    if (this.parryWhiffF > 0) {
+      this.parryWhiffF--;
+      if (this.parryWhiffF <= 0) {
+        // After whiff gap, fall back to block for 300ms
+        if (!this._blockDisabled && this.hitstunF <= 0 && this.state !== 'ko') {
+          this.blocking = 'stand';
+          this.state = 'block';
+          this._parryBlockFallbackT = 0.3;
+        }
+      }
+    }
+
+    // Parry block fallback timer
+    if (this._parryBlockFallbackT > 0) {
+      this._parryBlockFallbackT -= dt;
+      if (this._parryBlockFallbackT <= 0) {
+        this._parryBlockFallbackT = 0;
+        this.blocking = 'none';
+        if (this.state === 'block') this.state = 'idle';
+      }
+    }
+
+    // Parry cooldown
+    if (this.parryCooldownF > 0) this.parryCooldownF--;
+
+    // Parry success glow timer
+    if (this.parrySuccessT > 0) {
+      this.parrySuccessT -= dt;
+      if (this.parrySuccessT <= 0) {
+        this.parrySuccessT = 0;
+        this.parrySuccess = false;
+      }
+    }
+
+    // Parry stun (attacker stunned after being parried)
+    if (this.parryStunF > 0) {
+      this.parryStunF--;
+    }
+
+    // Push block i-frames
+    if (this.pushBlockIframesF > 0) this.pushBlockIframesF--;
+
+    // Push block cooldown
+    if (this.pushBlockCooldownF > 0) this.pushBlockCooldownF--;
 
     // Dash i-frames countdown
     if (this.dashIframesF > 0) this.dashIframesF--;

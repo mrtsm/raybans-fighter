@@ -123,6 +123,28 @@ export class Combat {
     const dmg = Math.round(dmgBase*(this.mods.dmgMul||1));
     const res = defender.takeHit({ dmg, type:a.type, from: attacker });
 
+    // PARRY: defender successfully parried — stun the attacker
+    if (res.parried) {
+      attacker.parryStunF = 18; // attacker stunned for 18 frames (~300ms)
+      attacker.attack = null;   // cancel attacker's attack
+      attacker.hitstunF = 18;   // put attacker in hitstun
+      attacker.state = 'hit';
+      attacker.comboRoute = [];
+
+      // Parry visual + audio
+      this.audio.play('sfx_block', { vol: 1.0, rate: 1.5 }); // high-pitched clang
+      this.renderer.doFreeze(4);
+      this.renderer.doShake(5, 0.12);
+      this.renderer.addParryEffect(defender.x, defender.y - 60);
+      this._spawnDamageNumber(defender.x, defender.y - 80, 0, false); // "PARRY" would be nice but 0 dmg for now
+
+      if (defender === (this._isPlayerCombat ? this._playerRef : null)) {
+        // momentum gain for player parry
+      }
+
+      return { type: 'parried', attacker, defender };
+    }
+
     const whiffPunish = !!(defender.attack && defender.attackWindow().recovery);
 
     if(res.hit && !res.blocked){

@@ -12,10 +12,10 @@ export class AI {
 
     // Difficulty settings
     const diffSettings = {
-      easy:      { reactionMs: 700, aggression: 0.2, blockChance: 0.10, specialChance: 0.05 },
-      normal:    { reactionMs: 250, aggression: 0.6, blockChance: 0.25, specialChance: 0.20 },
-      hard:      { reactionMs: 150, aggression: 0.8, blockChance: 0.35, specialChance: 0.30 },
-      nightmare: { reactionMs: 80,  aggression: 0.95, blockChance: 0.50, specialChance: 0.40 },
+      easy:      { reactionMs: 700, aggression: 0.2, blockChance: 0.10, specialChance: 0.05, parryChance: 0.03, pushBlockChance: 0.05 },
+      normal:    { reactionMs: 250, aggression: 0.6, blockChance: 0.25, specialChance: 0.20, parryChance: 0.12, pushBlockChance: 0.15 },
+      hard:      { reactionMs: 150, aggression: 0.8, blockChance: 0.35, specialChance: 0.30, parryChance: 0.25, pushBlockChance: 0.25 },
+      nightmare: { reactionMs: 80,  aggression: 0.95, blockChance: 0.50, specialChance: 0.40, parryChance: 0.40, pushBlockChance: 0.35 },
     };
     const s = diffSettings[difficulty] || diffSettings.normal;
 
@@ -23,6 +23,8 @@ export class AI {
     this.aggression = Math.min(1.0, s.aggression + streakBonus);
     this.blockChance = s.blockChance;
     this.specialChance = s.specialChance;
+    this.parryChance = s.parryChance;
+    this.pushBlockChance = s.pushBlockChance;
 
     // State
     this._cooldown = 0;        // seconds until next decision
@@ -59,10 +61,9 @@ export class AI {
 
     // Can't act while in hitstun or mid-attack
     if (!self.canAct()) {
-      // But track idle time for anti-stuck even during hitstun
-      // If stuck in canAct()===false for too long, force reset
-      if (self.hitstunF <= 0 && self.attack) {
-        // Attack might be stuck — it should auto-complete via fighter.update()
+      // But can push block during hitstun if has momentum
+      if (self.hitstunF > 0 && self.momentum >= 15 && Math.random() < this.pushBlockChance) {
+        return [{ action: 'push_block' }];
       }
       return actions;
     }
@@ -78,12 +79,22 @@ export class AI {
       return actions;
     }
 
-    // ── BLOCK: react to player attacks ──
-    if (player.attack && dist < 120 && Math.random() < this.blockChance) {
-      actions.push({ action: 'down_hold' });
-      this._cooldown = 0.3;
-      this._lastActionT = this._t;
-      return actions;
+    // ── BLOCK / PARRY: react to player attacks ──
+    if (player.attack && dist < 120) {
+      // Try parry first (higher skill = higher chance)
+      if (Math.random() < this.parryChance) {
+        actions.push({ action: 'parry' });
+        this._cooldown = 0.4;
+        this._lastActionT = this._t;
+        return actions;
+      }
+      // Fall back to block
+      if (Math.random() < this.blockChance) {
+        actions.push({ action: 'down_hold' });
+        this._cooldown = 0.3;
+        this._lastActionT = this._t;
+        return actions;
+      }
     }
 
     // ── IN RANGE: attack! ──
