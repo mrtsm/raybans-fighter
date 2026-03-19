@@ -52,7 +52,7 @@ export class UI {
     this.navigate = null;
 
     this.screen='splash';
-    this.sel = { fighter:'blaze', opponent:'granite', difficulty:'easy' };
+    this.sel = { fighter:'shade', opponent:'granite', difficulty:'easy' };
     this.results = null;
 
     this._blink=0;

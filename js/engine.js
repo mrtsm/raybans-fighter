@@ -90,6 +90,14 @@ export function boot(canvas){
       else if(game.mode === 'fight' && game.fight) audio.playMusic('music_' + game.fight.p1.id);
     }
   });
+  // Fallback for Meta glasses browser which may not fire visibilitychange
+  window.addEventListener('blur', () => { audio.stopMusic(); });
+  window.addEventListener('pagehide', () => { audio.stopMusic(); });
+  window.addEventListener('focus', () => {
+    if(game.mode === 'menu' || game.mode === 'splash') audio.playMusic('music_menu');
+    else if(game.mode === 'select') audio.playMusic('music_select');
+    else if(game.mode === 'fight' && game.fight) audio.playMusic('music_' + game.fight.p1.id);
+  });
 
   let acc = 0;
   let last = performance.now() / 1000;

@@ -831,11 +831,11 @@ export class Renderer{
         c.rotate(Math.sin(now / 80) * 0.08);
       }
 
-      // KO: fall tilt
+      // KO: fall tilt (limited so sprite stays visible)
       if(f.state === 'ko'){
-        const tilt = Math.min(f.stateT * 3, 0.5);
+        const tilt = Math.min(f.stateT * 3, 0.4);
         c.rotate(tilt);
-        c.translate(0, Math.min(f.stateT * 30, 20));
+        c.translate(0, Math.min(f.stateT * 20, 10));
       }
 
       // Last stand: red pulse glow

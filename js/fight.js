@@ -203,7 +203,8 @@ export class Fight {
 
     if (this.phase === 'between') {
       this.phaseT += effectiveDt;
-      if (this.phaseT >= 1.8) {
+      this._bannerT += effectiveDt;
+      if (this.phaseT >= 2.5) {
         if (this.round.p1 >= 2 || this.round.p2 >= 2) {
           return this._endMatch();
         }
@@ -723,7 +724,20 @@ export class Fight {
     let banner = '';
     if (this.phase === 'intro') banner = 'FIGHT!';
     else if (this.phase === 'between') {
-      banner = this._koPhase ? 'K.O.' : 'ROUND END';
+      if (this._koPhase) {
+        banner = 'K.O.';
+      } else {
+        banner = 'ROUND END';
+      }
+      // Show winner after KO text fades
+      if (this._bannerT > 0.8 && this._koWinner) {
+        const p1Won = this._koWinner === this.p1;
+        if (this.round.p1 >= 2 || this.round.p2 >= 2) {
+          banner = p1Won ? 'YOU WIN!' : 'DEFEATED';
+        } else {
+          banner = p1Won ? 'ROUND WON' : 'ROUND LOST';
+        }
+      }
     }
 
     this.renderer.drawHud({
