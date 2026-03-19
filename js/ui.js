@@ -192,6 +192,7 @@ export class UI {
   enterSelect(){
     this._startTransition('select');
     this.audio.playMusic('music_select');
+    this._selectInputGrace = 0.3; // ignore taps for 300ms to prevent menu tap from carrying over
 
     const unlocks=this.progression.unlocks();
     if(!unlocks.volt && this.sel.fighter==='volt') this.sel.fighter='blaze';
@@ -302,10 +303,12 @@ export class UI {
             // ARCADE
             this._dailyMode = false;
             this.navigate?.('select');
+            return; // don't let this tap carry to select screen
           } else if(this._menuSel === 1){
             // DAILY CHALLENGE
             this._dailyMode = true;
             this.navigate?.('select');
+            return; // don't let this tap carry to select screen
           } else if(this._menuSel === 2){
             // HIGH SCORES
             this._hsView = true;
@@ -319,6 +322,12 @@ export class UI {
       // Debounce held inputs for select navigation
       if(!this._selectNavCooldown) this._selectNavCooldown = 0;
       this._selectNavCooldown = Math.max(0, this._selectNavCooldown - (1/60));
+
+      // Grace period after entering select (prevents menu tap from starting fight)
+      if(this._selectInputGrace > 0) {
+        this._selectInputGrace -= dt;
+        return; // ignore all inputs during grace period
+      }
 
       for(const a of acts){
         if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); }
