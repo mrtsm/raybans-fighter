@@ -141,6 +141,7 @@ export class Fight {
     this.p1.vx = this.p2.vx = 0;
     this.p1.vy = this.p2.vy = 0;
     this.p1.attack = this.p2.attack = null;
+    this.p1.attackF = this.p2.attackF = 0;
     this.p1.hitstunF = this.p2.hitstunF = 0;
     this.p1.blocking = this.p2.blocking = 'none';
     this.p1.crouching = this.p2.crouching = false;
@@ -150,6 +151,18 @@ export class Fight {
     this.p2.consecutiveBlocks = 0;
     this.p1.guardBroken = false;
     this.p2.guardBroken = false;
+    // Reset HP, state, and momentum for new round
+    this.p1.hp = this.p1.maxHp;
+    this.p2.hp = this.p2.maxHp;
+    this.p1.state = 'idle';
+    this.p2.state = 'idle';
+    this.p1.stateT = this.p2.stateT = 0;
+    this.p1.momentum = 0;
+    this.p2.momentum = 0;
+    this.p1.charging = false;
+    this.p2.charging = false;
+    this._koPhase = false;
+    this._koWinner = null;
     this.timer = 30;
     this.phase = 'intro';
     this.phaseT = 0;
