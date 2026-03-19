@@ -125,17 +125,16 @@ export class Fighter {
   // ── Movement ──
 
   walk(dir) {
-    // Allow walk unless in hitstun, ko, victory, or early attack frames
-    if (this.hitstunF > 0 || this.state === 'ko' || this.state === 'victory') return;
-    if (this.attack) {
-      // Allow movement during attack recovery (last 40%)
-      const totalF = this.attack.startupF + this.attack.activeF + this.attack.recoveryF;
-      const progress = this.attackF / totalF;
-      if (progress < 0.6) return;
-    }
+    if (this.state === 'ko' || this.state === 'victory') return;
     if (this.charging) return;
-    this.x += dir * this.walkSpeed * (1 / 60);
-    if (this.state === 'idle' || this.state === 'walk') this.state = 'walk';
+    // Allow walk ALWAYS (even during hitstun/attack) but at reduced speed
+    let speed = this.walkSpeed;
+    if (this.hitstunF > 0) speed *= 0.4; // sluggish during hitstun
+    if (this.attack) speed *= 0.3; // slow during attack
+    this.x += dir * speed * (1 / 60);
+    if (!this.attack && this.hitstunF <= 0) {
+      if (this.state === 'idle' || this.state === 'walk') this.state = 'walk';
+    }
   }
 
   startDash(dir, iframesF) {

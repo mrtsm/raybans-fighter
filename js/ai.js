@@ -12,7 +12,7 @@ export class AI {
 
     // Difficulty settings
     const diffSettings = {
-      easy:      { reactionMs: 400, aggression: 0.4, blockChance: 0.15, specialChance: 0.10 },
+      easy:      { reactionMs: 700, aggression: 0.2, blockChance: 0.10, specialChance: 0.05 },
       normal:    { reactionMs: 250, aggression: 0.6, blockChance: 0.25, specialChance: 0.20 },
       hard:      { reactionMs: 150, aggression: 0.8, blockChance: 0.35, specialChance: 0.30 },
       nightmare: { reactionMs: 80,  aggression: 0.95, blockChance: 0.50, specialChance: 0.40 },

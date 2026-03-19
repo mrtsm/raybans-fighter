@@ -795,21 +795,22 @@ export class Renderer{
         }
       }
 
-      // Attack: subtle lunge forward (note: translations are in local space, already flipped by facing scale)
+      // Attack: dramatic lunge forward
       if(state === 'attacking' && f.attack){
         const totalF = f.attack.startupF + f.attack.activeF + f.attack.recoveryF;
         const progress = f.attackF / totalF;
-        if(progress < 0.25){
-          // Wind up: pull back slightly (positive X = toward opponent in local space)
-          c.translate(4, 0);
+        if(progress < 0.2){
+          // Wind up: pull back
+          c.translate(8, 0);
         } else if(progress < 0.5){
-          // Strike: lunge forward
-          c.translate(-12, 0);
-          c.scale(1.05, 0.97);
+          // Strike: BIG lunge forward + squash
+          c.translate(-30, 0);
+          c.scale(1.15, 0.92);
         } else {
           // Recovery: ease back
           const t = (progress - 0.5) / 0.5;
-          c.translate(lerp(-12, 0, t), 0);
+          c.translate(lerp(-30, 0, t), 0);
+          c.scale(lerp(1.15, 1, t), lerp(0.92, 1, t));
         }
       }
 
@@ -859,6 +860,17 @@ export class Renderer{
         c.filter = 'brightness(3)';
         c.drawImage(im, -drawW/2, -drawH, drawW, drawH);
         c.filter = 'none';
+      } else if(state === 'attacking' && f.attack){
+        // Yellow tint during attack strike phase
+        const totalF = f.attack.startupF + f.attack.activeF + f.attack.recoveryF;
+        const progress = f.attackF / totalF;
+        if(progress > 0.2 && progress < 0.5){
+          c.filter = 'brightness(1.4) saturate(1.5)';
+          c.drawImage(im, -drawW/2, -drawH, drawW, drawH);
+          c.filter = 'none';
+        } else {
+          c.drawImage(im, -drawW/2, -drawH, drawW, drawH);
+        }
       } else {
         c.drawImage(im, -drawW/2, -drawH, drawW, drawH);
       }

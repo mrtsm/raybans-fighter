@@ -76,9 +76,9 @@ export class Input {
   update(dt) {
     this.now += dt;
 
-    // Auto-release keys after 500ms (armband may not fire keyup)
+    // Auto-release keys after 800ms (armband may not fire keyup)
     for (const [code, downTime] of this._keyDownAt.entries()) {
-      if (this.now - downTime > 0.5) {
+      if (this.now - downTime > 0.8) {
         this._keys.delete(code);
         this._keyDownAt.delete(code);
         if (code === 'ArrowDown') this._push('down_release');
