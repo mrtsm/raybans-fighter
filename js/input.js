@@ -29,11 +29,8 @@ export class Input {
     });
 
     // ── Mouse events (fallback for desktop testing) ──
-    this._pointerHandled = false;
     canvas.addEventListener('mousedown', e => {
       e.preventDefault();
-      // Skip if pointerdown already handled this frame
-      if (this._pointerHandled) return;
       if (e.button === 2) {
         this._push('special');
       } else {
@@ -70,9 +67,9 @@ export class Input {
   update(dt) {
     this.now += dt;
 
-    // Auto-release keys after 300ms (armband may not fire keyup)
+    // Auto-release keys after 500ms (armband may not fire keyup)
     for (const [code, downTime] of this._keyDownAt.entries()) {
-      if (this.now - downTime > 0.3) {
+      if (this.now - downTime > 0.5) {
         this._keys.delete(code);
         this._keyDownAt.delete(code);
         if (code === 'ArrowDown') this._push('down_release');

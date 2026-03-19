@@ -73,7 +73,7 @@ export class Fighter {
     this._invisT = 0;
 
     // Walk speed (px/s from fighter definition)
-    this.walkSpeed = def.walkSpeed || 100;
+    this.walkSpeed = def.walkSpeed || 200;
 
     // Stats
     this.stats = {
@@ -125,7 +125,14 @@ export class Fighter {
   // ── Movement ──
 
   walk(dir) {
-    if (!this.canAct()) return;
+    // Allow walk unless in hitstun, ko, victory, or early attack frames
+    if (this.hitstunF > 0 || this.state === 'ko' || this.state === 'victory') return;
+    if (this.attack) {
+      // Allow movement during attack recovery (last 40%)
+      const totalF = this.attack.startupF + this.attack.activeF + this.attack.recoveryF;
+      const progress = this.attackF / totalF;
+      if (progress < 0.6) return;
+    }
     this.x += dir * this.walkSpeed * (1 / 60);
     if (this.state === 'idle' || this.state === 'walk') this.state = 'walk';
   }
