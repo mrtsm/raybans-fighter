@@ -21,6 +21,7 @@ export class Input {
     // ── Pointer events (PRIMARY — armband fires these) ──
     canvas.addEventListener('pointerdown', e => {
       e.preventDefault();
+      console.log('[INPUT] pointerdown button=' + e.button);
       if (e.button === 2) {
         this._push('special');
       } else {
@@ -31,6 +32,7 @@ export class Input {
     // ── Mouse events (fallback for desktop testing) ──
     canvas.addEventListener('mousedown', e => {
       e.preventDefault();
+      console.log('[INPUT] mousedown button=' + e.button);
       if (e.button === 2) {
         this._push('special');
       } else {
@@ -41,26 +43,33 @@ export class Input {
     // ── Keyboard ──
     window.addEventListener('keydown', e => {
       if (e.repeat) return;
-      const c = e.code;
+      const c = e.code || e.key;
+      console.log('[INPUT] keydown code=' + e.code + ' key=' + e.key);
       if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyZ','KeyX','Enter','Space','Escape'].includes(c)) {
         e.preventDefault();
       }
       this._keys.add(c);
       this._keyDownAt.set(c, this.now);
+      // Also track by key name for armband compatibility
+      if (e.key) { this._keys.add(e.key); this._keyDownAt.set(e.key, this.now); }
 
       // Edge-triggered actions (fire once on press)
-      if (c === 'ArrowUp')   this._push('jump');
+      if (c === 'ArrowUp' || e.key === 'ArrowUp')     this._push('jump');
+      if (c === 'ArrowLeft' || e.key === 'ArrowLeft')  this._push('walk_left_hold');
+      if (c === 'ArrowRight' || e.key === 'ArrowRight') this._push('walk_right_hold');
       if (c === 'KeyZ')      this._push('light');
       if (c === 'KeyX')      this._push('heavy');
-      if (c === 'Enter')     this._push('ui_confirm');
+      if (c === 'Enter' || e.key === 'Enter')     this._push('ui_confirm');
       if (c === 'Space')     this._push('ui_confirm');
       if (c === 'Escape')    this._push('ui_back');
     });
 
     window.addEventListener('keyup', e => {
       this._keys.delete(e.code);
+      this._keys.delete(e.key);
       this._keyDownAt.delete(e.code);
-      if (e.code === 'ArrowDown') this._push('down_release');
+      this._keyDownAt.delete(e.key);
+      if (e.code === 'ArrowDown' || e.key === 'ArrowDown' || e.key === 'Down') this._push('down_release');
     });
   }
 
@@ -77,9 +86,9 @@ export class Input {
     }
 
     // Continuous hold actions (pushed every frame while held)
-    if (this._keys.has('ArrowLeft'))  this._push('walk_left_hold');
-    if (this._keys.has('ArrowRight')) this._push('walk_right_hold');
-    if (this._keys.has('ArrowDown'))  this._push('down_hold');
+    if (this._keys.has('ArrowLeft') || this._keys.has('Left'))   this._push('walk_left_hold');
+    if (this._keys.has('ArrowRight') || this._keys.has('Right')) this._push('walk_right_hold');
+    if (this._keys.has('ArrowDown') || this._keys.has('Down'))   this._push('down_hold');
 
     // Expire old buffered actions (200ms buffer window)
     this.queue = this.queue.filter(ev => (this.now - ev.t) <= 0.2);

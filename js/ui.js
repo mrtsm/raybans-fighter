@@ -502,13 +502,13 @@ export class UI {
 
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.font = '900 52px Orbitron, system-ui';
+      c.font = '900 52px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = '#fff';
       c.shadowColor = 'rgba(120,240,255,0.9)';
       c.shadowBlur = 30 + Math.sin(t * 8) * 5;
       c.fillText('PIXEL', 0, -30);
 
-      c.font = '900 68px Orbitron, system-ui';
+      c.font = '900 68px Impact, 'Arial Black', system-ui, sans-serif';
       c.shadowColor = 'rgba(210,150,255,0.9)';
       c.shadowBlur = 34 + Math.sin(t * 6) * 5;
       c.fillText('BRAWL', 0, 45);
@@ -555,7 +555,7 @@ export class UI {
 
         // Fighter icon
         c.textAlign = 'center';
-        c.font = '600 28px Orbitron, system-ui';
+        c.font = '600 28px Impact, 'Arial Black', system-ui, sans-serif';
         c.fillStyle = withAlpha(pal.glow, charProgress);
         c.shadowColor = withAlpha(pal.glow, 0.8);
         c.shadowBlur = 16;
@@ -582,7 +582,7 @@ export class UI {
       c.globalAlpha = blink ? 0.7 : 0.35;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.font = '700 14px Orbitron, system-ui';
+      c.font = '700 14px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = 'rgba(255,255,255,0.8)';
       c.fillText('CLICK TO SKIP', 300, 560);
       c.restore();
@@ -686,7 +686,7 @@ export class UI {
       if(selected){
         c.save();
         c.textAlign = 'left';
-        c.font = '900 20px Orbitron, system-ui';
+        c.font = '900 20px Impact, 'Arial Black', system-ui, sans-serif';
         c.fillStyle = 'rgba(120,240,255,0.9)';
         c.shadowColor = 'rgba(120,240,255,0.7)';
         c.shadowBlur = 10;
@@ -700,7 +700,7 @@ export class UI {
       c.save();
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.font = `${selected ? '900' : '700'} ${selected ? 20 : 18}px Orbitron, system-ui`;
+      c.font = `${selected ? '900' : '700'} ${selected ? 20 : 18}px Impact, 'Arial Black', system-ui, sans-serif`;
       c.fillStyle = selected ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.65)';
       if(selected){
         c.shadowColor = 'rgba(120,240,255,0.6)';
@@ -714,7 +714,7 @@ export class UI {
         const daily = this._dailyChallenge;
         c.save();
         c.textAlign = 'center';
-        c.font = '600 11px Orbitron, system-ui';
+        c.font = '600 11px Impact, 'Arial Black', system-ui, sans-serif';
         c.fillStyle = 'rgba(255,215,64,0.75)';
         c.fillText(`${daily.icon} ${daily.name}`, 300, y + itemH - 6);
         c.restore();
@@ -728,7 +728,7 @@ export class UI {
       c.save();
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.font = '800 13px Orbitron, system-ui';
+      c.font = '800 13px Impact, 'Arial Black', system-ui, sans-serif';
 
       if(this._streak.current > 0){
         c.fillStyle = 'rgba(255,215,64,0.95)';
@@ -738,7 +738,7 @@ export class UI {
       }
 
       c.shadowBlur = 0;
-      c.font = '600 11px Orbitron, system-ui';
+      c.font = '600 11px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = 'rgba(255,255,255,0.6)';
       c.fillText(`BEST STREAK: ${this._streak.best}`, 300, streakY + 36);
       c.restore();
@@ -749,7 +749,7 @@ export class UI {
     c.textAlign='center';
     c.textBaseline='top';
     c.fillStyle='rgba(255,255,255,0.45)';
-    c.font='600 11px Orbitron, system-ui';
+    c.font='600 11px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillText('↑↓ Navigate   Click to Select', 300, 510);
     c.fillText('← → Move   ↑ Jump   ↓ Block   L-Click Attack   R-Click Special', 300, 530);
     c.restore();
@@ -771,7 +771,7 @@ export class UI {
     // Arcade scores
     c.save();
     c.textAlign = 'center';
-    c.font = '800 14px Orbitron, system-ui';
+    c.font = '800 14px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle = 'rgba(120,240,255,0.9)';
     c.fillText('ARCADE', 190, 268);
 
@@ -806,7 +806,7 @@ export class UI {
   _drawScoreColumn(x, y, w, scores){
     const c = this.renderer.ctx;
     c.save();
-    c.font = '700 12px Orbitron, system-ui';
+    c.font = '700 12px Impact, 'Arial Black', system-ui, sans-serif';
     for(let i = 0; i < Math.min(5, scores.length); i++){
       const s = scores[i];
       const sy = y + i * 28;
@@ -827,11 +827,11 @@ export class UI {
     c.save();
     c.textAlign = 'center';
     c.textBaseline = 'top';
-    c.font = '800 11px Orbitron, system-ui';
+    c.font = '800 11px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle = 'rgba(255,215,64,0.85)';
     c.fillText('HIGH SCORES', x + w/2, y);
 
-    c.font = '700 10px Orbitron, system-ui';
+    c.font = '700 10px Impact, 'Arial Black', system-ui, sans-serif';
     const scores = this.highScores.slice(0, 3);
     for(let i = 0; i < scores.length; i++){
       const hs = scores[i];
@@ -849,7 +849,7 @@ export class UI {
     const c=this.renderer.ctx;
     c.save();
     c.textBaseline='top';
-    c.font='800 11px Orbitron, system-ui';
+    c.font='800 11px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle='rgba(255,255,255,0.75)';
     c.fillText(label, x, y);
 
@@ -886,13 +886,13 @@ export class UI {
       c.save();
       c.textAlign='center';
       c.textBaseline='middle';
-      c.font='900 14px Orbitron, system-ui';
+      c.font='900 14px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle='rgba(255,245,190,0.95)';
       c.shadowColor='rgba(255,215,64,0.7)';
       c.shadowBlur=10;
       c.fillText(`${daily.icon} DAILY: ${daily.name}`, 300, 22);
       c.shadowBlur=0;
-      c.font='600 10px Orbitron, system-ui';
+      c.font='600 10px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle='rgba(255,255,255,0.75)';
       c.fillText(daily.desc, 300, 38);
       c.restore();
@@ -910,7 +910,7 @@ export class UI {
     c.shadowColor = withAlpha(pal.glow,0.8);
     c.shadowBlur = 18;
     c.fillStyle = 'rgba(255,255,255,0.85)';
-    c.font='900 28px Orbitron, system-ui';
+    c.font='900 28px Impact, 'Arial Black', system-ui, sans-serif';
     c.textAlign='center';
     c.fillText('◀', 92, panelTop + 84);
     c.fillText('▶', 508, panelTop + 84);
@@ -934,7 +934,7 @@ export class UI {
     c.save();
     c.textAlign='center';
     c.textBaseline='top';
-    c.font='900 40px Orbitron, system-ui';
+    c.font='900 40px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle = withAlpha(pal.top || pal.primary, 0.95);
     c.shadowColor = withAlpha(pal.glow, 0.8);
     c.shadowBlur = 20;
@@ -960,7 +960,7 @@ export class UI {
       c.save();
       c.textAlign='center';
       c.textBaseline='top';
-      c.font='800 12px Orbitron, system-ui';
+      c.font='800 12px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle='rgba(255,255,255,0.82)';
       c.fillText('DIFFICULTY  (UP / DOWN)', 300, statY + 70);
       c.restore();
@@ -977,7 +977,7 @@ export class UI {
         c.save();
         c.textAlign='center';
         c.textBaseline='middle';
-        c.font='800 11px Orbitron, system-ui';
+        c.font='800 11px Impact, 'Arial Black', system-ui, sans-serif';
         c.fillStyle = ok ? (on?'rgba(255,255,255,0.95)':'rgba(255,255,255,0.80)') : 'rgba(255,255,255,0.30)';
         c.fillText(d.toUpperCase(), x+bw/2, by+bh/2+1);
         c.restore();
@@ -989,7 +989,7 @@ export class UI {
       const streakY = this._dailyMode ? statY + 72 : statY + 126;
       c.save();
       c.textAlign='center';
-      c.font='800 14px Orbitron, system-ui';
+      c.font='800 14px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle='rgba(255,215,64,0.95)';
       c.shadowColor='rgba(255,215,64,0.7)';
       c.shadowBlur=12;
@@ -1001,7 +1001,7 @@ export class UI {
     c.save();
     c.textAlign='center';
     c.textBaseline='top';
-    c.font='650 10px Orbitron, system-ui';
+    c.font='650 10px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle='rgba(255,255,255,0.50)';
     c.fillText(`Level ${lvl}  •  Volt@10  Hard@15  Nightmare@25`, 300, 565);
     c.restore();
@@ -1033,7 +1033,7 @@ export class UI {
     c.scale(titleScale, titleScale);
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.font = '900 56px Orbitron, system-ui';
+    c.font = '900 56px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle = 'rgba(255,255,255,0.95)';
     c.shadowColor = glow;
     c.shadowBlur = 30;
@@ -1073,12 +1073,12 @@ export class UI {
       const y = 116 + i * 28;
 
       c.textAlign = 'left';
-      c.font = '700 13px Orbitron, system-ui';
+      c.font = '700 13px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = 'rgba(255,255,255,0.7)';
       c.fillText(sl.label, 70, y);
 
       c.textAlign = 'right';
-      c.font = '800 13px Orbitron, system-ui';
+      c.font = '800 13px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = 'rgba(255,255,255,0.95)';
       c.fillText(sl.value, 530, y);
     }
@@ -1090,7 +1090,7 @@ export class UI {
       c.save();
       c.globalAlpha = alpha;
       c.textAlign = 'center';
-      c.font = '900 16px Orbitron, system-ui';
+      c.font = '900 16px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = 'rgba(255,215,64,0.95)';
       c.shadowColor = 'rgba(255,215,64,0.8)';
       c.shadowBlur = 14;
@@ -1104,7 +1104,7 @@ export class UI {
       c.save();
       c.globalAlpha = alpha;
       c.textAlign = 'center';
-      c.font = '700 11px Orbitron, system-ui';
+      c.font = '700 11px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = 'rgba(255,215,64,0.85)';
       c.fillText(`Fighter Best: ${(r.fighterBest||0).toLocaleString()}   Overall Best: ${(r.overallBest||0).toLocaleString()}`, 300, 385);
       c.restore();
@@ -1152,7 +1152,7 @@ export class UI {
 
     c.save();
     c.textAlign = 'center';
-    c.font = '900 26px Orbitron, system-ui';
+    c.font = '900 26px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle = 'rgba(255,255,255,0.9)';
     c.fillText(r.score?.toLocaleString() || '0', 300, 190);
     c.restore();
@@ -1161,7 +1161,7 @@ export class UI {
     if(hs.daily){
       c.save();
       c.textAlign = 'center';
-      c.font = '700 12px Orbitron, system-ui';
+      c.font = '700 12px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = 'rgba(255,215,64,0.8)';
       c.fillText(`${this._dailyChallenge.icon} DAILY CHALLENGE`, 300, 218);
       c.restore();
@@ -1193,7 +1193,7 @@ export class UI {
       c.save();
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.font = '900 34px Orbitron, system-ui';
+      c.font = '900 34px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = selected ? 'rgba(255,215,64,0.95)' : 'rgba(255,255,255,0.85)';
       if(selected){
         c.shadowColor = 'rgba(255,215,64,0.8)';
@@ -1206,7 +1206,7 @@ export class UI {
       if(selected){
         c.save();
         c.textAlign = 'center';
-        c.font = '600 16px Orbitron, system-ui';
+        c.font = '600 16px Impact, 'Arial Black', system-ui, sans-serif';
         c.fillStyle = 'rgba(255,215,64,0.7)';
         c.fillText('▲', x + 26, y - 14);
         c.fillText('▼', x + 26, y + 78);
@@ -1217,7 +1217,7 @@ export class UI {
     // Instructions
     c.save();
     c.textAlign = 'center';
-    c.font = '600 11px Orbitron, system-ui';
+    c.font = '600 11px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle = 'rgba(255,255,255,0.55)';
     c.fillText('↑↓ Change Letter  ←→ Move  Click to Confirm', 300, 378);
     c.restore();
@@ -1227,7 +1227,7 @@ export class UI {
     this._panel(90, 405, 420, 140, 'rgba(255,215,64,0.5)');
     c.save();
     c.textAlign = 'center';
-    c.font = '800 12px Orbitron, system-ui';
+    c.font = '800 12px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle = 'rgba(255,215,64,0.85)';
     c.fillText(hs.daily ? 'DAILY HIGH SCORES' : 'HIGH SCORES', 300, 418);
 
@@ -1239,7 +1239,7 @@ export class UI {
       const icon = FIGHTERS[s.fighter]?.icon || '🎮';
       c.fillStyle = isNew ? 'rgba(255,215,64,0.95)' : 'rgba(255,255,255,0.65)';
       c.textAlign = 'left';
-      c.font = `${isNew?'800':'700'} 11px Orbitron, system-ui`;
+      c.font = `${isNew?'800':'700'} 11px Impact, 'Arial Black', system-ui, sans-serif`;
       c.fillText(`${i+1}. ${icon} ${s.initials}`, 140, sy);
       c.textAlign = 'right';
       c.fillText(s.score.toLocaleString(), 460, sy);

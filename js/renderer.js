@@ -370,14 +370,14 @@ export class Renderer{
     // Number
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.font = '900 36px Orbitron, system-ui';
+    c.font = '900 36px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle = cd.color;
     c.shadowColor = withAlpha(cd.color, 0.9);
     c.shadowBlur = 20;
     c.fillText(`${cd.count}`, 0, 0);
 
     // Label
-    c.font = '800 14px Orbitron, system-ui';
+    c.font = '800 14px Impact, 'Arial Black', system-ui, sans-serif';
     c.fillStyle = 'rgba(255,255,255,0.9)';
     c.shadowColor = withAlpha(cd.color, 0.7);
     c.shadowBlur = 14;
@@ -401,7 +401,7 @@ export class Renderer{
       c.scale(s, s);
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.font = `900 ${dn.isCrit ? 28 : 22}px Orbitron, system-ui`;
+      c.font = `900 ${dn.isCrit ? 28 : 22}px Impact, 'Arial Black', system-ui, sans-serif`;
       c.fillStyle = dn.color;
       c.shadowColor = dn.isCrit ? 'rgba(255,200,0,0.9)' : 'rgba(255,255,255,0.7)';
       c.shadowBlur = dn.isCrit ? 16 : 10;
@@ -529,7 +529,7 @@ export class Renderer{
 
       // name
       const ny = y+barH+6;
-      c.font='800 13px Orbitron, system-ui';
+      c.font='800 13px Impact, 'Arial Black', system-ui, sans-serif';
       c.textBaseline='top';
       c.textAlign = side==='left'?'left':'right';
       c.fillStyle = withAlpha(accent, 0.95);
@@ -543,7 +543,7 @@ export class Renderer{
 
     // round score
     c.fillStyle='rgba(255,255,255,0.85)';
-    c.font='700 12px Orbitron, system-ui';
+    c.font='700 12px Impact, 'Arial Black', system-ui, sans-serif';
     c.textBaseline='top';
     c.textAlign='center';
     c.fillText(`${hud.rounds.p1}-${hud.rounds.p2}`, this.w/2, top+barH+8);
@@ -551,7 +551,7 @@ export class Renderer{
     // match score
     c.save();
     c.textAlign='right';
-    c.font='800 12px Orbitron, system-ui';
+    c.font='800 12px Impact, 'Arial Black', system-ui, sans-serif';
     const text = `${hud.matchScore.toLocaleString()}`;
     const tw = c.measureText(text).width;
     fillRoundRect(c, this.w-pad-tw-16, top+barH+6, tw+16, 18, 8, 'rgba(0,0,0,0.35)');
@@ -570,7 +570,7 @@ export class Renderer{
     c.fillStyle = urgent ? 'rgba(255,80,80,0.95)' : 'rgba(255,255,255,0.92)';
     c.shadowColor = urgent ? 'rgba(255,80,80,0.9)' : 'rgba(120,240,255,0.45)';
     c.shadowBlur = urgent ? 18 : 12;
-    c.font = `900 28px Orbitron, system-ui`;
+    c.font = `900 28px Impact, 'Arial Black', system-ui, sans-serif`;
     c.fillText(String(tm), this.w/2, top-2);
     c.restore();
 
@@ -604,7 +604,7 @@ export class Renderer{
 
       c.save();
       c.textAlign='center';
-      c.font='900 12px Orbitron, system-ui';
+      c.font='900 12px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle='rgba(255,245,190,0.95)';
       c.shadowColor='rgba(255,215,64,0.95)';
       c.shadowBlur=16;
@@ -617,7 +617,7 @@ export class Renderer{
     if(hud.guardBreakWarning){
       c.save();
       c.textAlign='center';
-      c.font='900 16px Orbitron, system-ui';
+      c.font='900 16px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle='rgba(255,80,80,0.95)';
       c.shadowColor='rgba(255,80,80,0.9)';
       c.shadowBlur=14;
@@ -650,7 +650,7 @@ export class Renderer{
                         'rgba(255,255,255,0.75)';
 
       const streakText = `🔥 ${ws.current} ${ws.title}`;
-      c.font = '700 10px Orbitron, system-ui';
+      c.font = '700 10px Impact, 'Arial Black', system-ui, sans-serif';
       const tw = c.measureText(streakText).width;
       fillRoundRect(c, badgeX, badgeY, tw + 12, 16, 8, bgColor);
       c.fillStyle = textColor;
@@ -664,7 +664,7 @@ export class Renderer{
       if(ws.multiplier > 1){
         c.textAlign = 'right';
         c.fillStyle = 'rgba(255,215,64,0.85)';
-        c.font = '800 10px Orbitron, system-ui';
+        c.font = '800 10px Impact, 'Arial Black', system-ui, sans-serif';
         c.fillText(`${ws.multiplier}× SCORE`, this.w - pad, badgeY + 3);
       }
 
@@ -677,7 +677,7 @@ export class Renderer{
       c.textAlign='center';
       c.textBaseline='top';
       const modY = top + barH + 28;
-      c.font = '800 11px Orbitron, system-ui';
+      c.font = '800 11px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle = 'rgba(255,215,64,0.9)';
       c.shadowColor = 'rgba(255,215,64,0.6)';
       c.shadowBlur = 10;
@@ -699,7 +699,7 @@ export class Renderer{
       c.save();
       c.translate(this.w/2, y+32);
       c.scale(bannerScale, bannerScale);
-      c.font='900 30px Orbitron, system-ui';
+      c.font='900 30px Impact, 'Arial Black', system-ui, sans-serif';
       c.fillStyle='rgba(255,255,255,0.95)';
       c.shadowColor= hud.banner === 'K.O.' ? 'rgba(255,80,80,0.9)' : 'rgba(120,240,255,0.55)';
       c.shadowBlur= hud.banner === 'K.O.' ? 24 : 18;

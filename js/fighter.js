@@ -133,6 +133,7 @@ export class Fighter {
       const progress = this.attackF / totalF;
       if (progress < 0.6) return;
     }
+    if (this.charging) return;
     this.x += dir * this.walkSpeed * (1 / 60);
     if (this.state === 'idle' || this.state === 'walk') this.state = 'walk';
   }

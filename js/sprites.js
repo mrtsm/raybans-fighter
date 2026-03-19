@@ -78,7 +78,7 @@ export const neonText = (ctx, text, x,y, { color='#7df9ff', glow=null, align='ce
   ctx.textAlign = align;
   ctx.textBaseline = 'middle';
   ctx.fillStyle = color;
-  ctx.font = `${weight} ${size}px Orbitron, system-ui, sans-serif`;
+  ctx.font = `${weight} ${size}px Impact, 'Arial Black', system-ui, sans-serif`;
   ctx.shadowColor = glow || color;
   ctx.shadowBlur = blur;
   ctx.fillText(text, x,y);
