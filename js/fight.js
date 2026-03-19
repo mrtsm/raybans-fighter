@@ -744,5 +744,6 @@ export class Fight {
     });
 
     this.renderer.endScene();
+    this.renderer.drawDebug(this.p1);
   }
 }

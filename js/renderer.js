@@ -795,21 +795,21 @@ export class Renderer{
         }
       }
 
-      // Attack: subtle lunge forward
+      // Attack: subtle lunge forward (note: translations are in local space, already flipped by facing scale)
       if(state === 'attacking' && f.attack){
         const totalF = f.attack.startupF + f.attack.activeF + f.attack.recoveryF;
         const progress = f.attackF / totalF;
         if(progress < 0.25){
-          // Wind up: pull back slightly
-          c.translate(f.facing * -4, 0);
+          // Wind up: pull back slightly (positive X = toward opponent in local space)
+          c.translate(4, 0);
         } else if(progress < 0.5){
           // Strike: lunge forward
-          c.translate(f.facing * 8, 0);
+          c.translate(-12, 0);
           c.scale(1.05, 0.97);
         } else {
           // Recovery: ease back
           const t = (progress - 0.5) / 0.5;
-          c.translate(f.facing * lerp(8, 0, t), 0);
+          c.translate(lerp(-12, 0, t), 0);
         }
       }
 
@@ -899,5 +899,16 @@ export class Renderer{
       strokeRoundRect(c, x, y, w, h, 5, 'rgba(255,255,255,0.20)', 1);
       c.restore();
     }
+  }
+
+  drawDebug(p1) {
+    const c = this.ctx;
+    c.save();
+    c.setTransform(1,0,0,1,0,0);
+    c.font = '11px monospace';
+    c.fillStyle = '#0f0';
+    c.textAlign = 'left';
+    c.fillText(`P1: x=${Math.round(p1.x)} state=${p1.state} atk=${p1.attack?.kind||'-'} hs=${p1.hitstunF} face=${p1.facing}`, 10, this.h - 10);
+    c.restore();
   }
 }
