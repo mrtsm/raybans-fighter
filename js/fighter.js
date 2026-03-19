@@ -201,32 +201,9 @@ export class Fighter {
     this.blocking = 'none';
     this.crouching = false;
 
-    // Allow combo cancel: if currently attacking AND hit connected, allow chain
-    if (this.attack) {
-      const curKind = this.attack.kind;
-      const aw = this.attackWindow();
-      const canCancel = aw.active || (aw.recovery && this.attackF <= this.attack.startupF + this.attack.activeF + 3);
-
-      if (canCancel && this.attackHasHit) {
-        const allowed =
-          (curKind === 'light' && (kind === 'heavy' || kind === 'light' || kind === 'low')) ||
-          (curKind === 'light' && kind === 'special') ||
-          (curKind === 'low' && kind === 'heavy');
-
-        if (allowed && this.comboRoute.length < this.maxComboLength) {
-          this.attack = null;
-          this.attackF = 0;
-          this.attackHasHit = false;
-          // Fall through to start new attack
-        } else {
-          return false;
-        }
-      } else {
-        return false; // Can't start attack while one is playing
-      }
-    }
-
-    if (this.hitstunF > 0 || this.state === 'ko' || this.state === 'victory' || this.guardBroken) return false;
+    // Can't attack if already attacking, in hitstun, KO, or victory
+    if (this.attack) return false;
+    if (this.hitstunF > 0 || this.state === 'ko' || this.state === 'victory') return false;
 
     let m;
     if (kind === 'light') m = this.def.moves.light;

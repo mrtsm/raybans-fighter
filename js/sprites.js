@@ -194,48 +194,31 @@ export class SpriteManager {
   async loadAll(onProgress) {
     const fighters = ['blaze','granite','shade','volt'];
     const poses = ['idle','light','heavy','block','jump','crouch','hitstun','ko','special','victory'];
-    // Animation frames (optional — only loaded if they exist)
-    const animFrames = [
-      'idle_2','idle_3',
-      'light_windup','light_followthrough',
-      'heavy_windup','heavy_followthrough',
-      'special_windup','special_followthrough'
-    ];
-    // Arena backgrounds
     const bgKeys = ['arena_bg','arena_storm','arena_volcano','arena_shadow','title_bg'];
-    const total = fighters.length * (poses.length + animFrames.length) + bgKeys.length;
+    const total = fighters.length * poses.length + bgKeys.length;
     let done = 0;
     const bust = `?v=${Date.now()}`;
-    const load = (src, removeWhite=false) => new Promise((res) => {
+    const load = (src) => new Promise((res) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        done++;
-        onProgress?.(done/total);
-        // Sprites now have proper PNG transparency from rembg — no JS bg removal needed
-        res(img);
-      };
-      img.onerror = (e) => { done++; onProgress?.(done/total); res(null); };
+      img.onload = () => { done++; onProgress?.(done/total); res(img); };
+      img.onerror = () => { done++; onProgress?.(done/total); res(null); };
       img.src = src + bust;
     });
-    console.log('[Sprites] Loading', total, 'assets...');
+    console.log('[Sprites] Loading', total, 'assets in parallel...');
+    // Fire ALL loads in parallel
+    const promises = [];
     for (const f of fighters) {
       this.sprites[f] = {};
-      // Load base poses
       for (const p of poses) {
-        this.sprites[f][p] = await load(`assets/sprites/${f}/${p}.png`, true);
-      }
-      // Load animation frames (optional, don't fail if missing)
-      for (const af of animFrames) {
-        this.sprites[f][af] = await load(`assets/sprites/${f}/${af}.png`, true);
+        promises.push(load(`assets/sprites/${f}/${p}.png`).then(img => { this.sprites[f][p] = img; }));
       }
     }
-    // Load all backgrounds (no white removal)
     for (const bgKey of bgKeys) {
-      this.sprites[bgKey] = await load(`assets/sprites/${bgKey}.png`, false);
+      promises.push(load(`assets/sprites/${bgKey}.png`).then(img => { this.sprites[bgKey] = img; }));
     }
-    const ok = Object.entries(this.sprites).filter(([k,v]) => typeof v === 'object' && v !== null && !(v instanceof HTMLImageElement) && !(v instanceof HTMLCanvasElement)).map(([k,v]) => [k, Object.values(v).filter(Boolean).length]);
-    console.log('[Sprites] Loaded fighters:', ok, 'backgrounds:', bgKeys.filter(k => this.sprites[k]).length);
+    await Promise.all(promises);
+    console.log('[Sprites] All loaded');
     this.loaded = true;
   }
   get(fighterId, state, attackKind, attackProgress) {

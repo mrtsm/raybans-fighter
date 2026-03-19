@@ -1,16 +1,16 @@
 export const FIGHTERS = {
   blaze: {
     id:'blaze', name:'BLAZE', icon:'🔥',
-    health:90, dashPx:90, walkSpeed:130, range:{ light:55, heavy:100, low:60 },
+    health:90, dashPx:90, walkSpeed:130, range:{ light:100, heavy:120, low:80 },
     spriteScale: 1.0,
     colors:{ core:'#ff4a2f', glow:'#ffb14a' },
     voice:{ start:'blaze_start', special:'blaze_special', sig:'blaze_sig', win:'blaze_win', lose:'blaze_lose' },
     theme:'music_blaze',
     moves:{
-      light:{ startup:2, active:2, recovery:2, dmg:8, type:'mid', hitstunF:6 },
-      heavy:{ startup:6, active:3, recovery:5, dmg:18, type:'overhead', antiAir:true, hitstunF:12, pushPx:30 },
-      low:{ startup:2, active:2, recovery:2, dmg:8, type:'low', hitstunF:6 },
-      air:{ startup:2, active:3, recovery:3, dmg:10, type:'overhead', hitstunF:8 },
+      light:{ startup:3, active:4, recovery:4, dmg:8, type:'mid', hitstunF:6 },
+      heavy:{ startup:6, active:4, recovery:6, dmg:18, type:'overhead', antiAir:true, hitstunF:12, pushPx:30 },
+      low:{ startup:3, active:3, recovery:3, dmg:8, type:'low', hitstunF:6 },
+      air:{ startup:3, active:4, recovery:4, dmg:10, type:'overhead', hitstunF:8 },
       grab:{ startup:3, active:2, recovery:6, dmg:12, throwPx:120 },
       special:{ cost:30, name:'FIREBALL', baseDmg:10 },
       signature:{ cost:100, name:'INFERNO', dmg:25 },
@@ -18,16 +18,16 @@ export const FIGHTERS = {
   },
   granite:{
     id:'granite', name:'GRANITE', icon:'🪨',
-    health:120, dashPx:60, walkSpeed:80, range:{ light:65, heavy:80, low:70 },
+    health:120, dashPx:60, walkSpeed:80, range:{ light:100, heavy:110, low:90 },
     spriteScale: 0.85, // Granite sprite fills more of canvas, scale down to match others
     colors:{ core:'#9aa2ad', glow:'#e2e6ea' },
     voice:{ start:'granite_start', special:'granite_special', sig:'granite_sig', win:'granite_win', lose:'granite_lose' },
     theme:'music_granite',
     moves:{
-      light:{ startup:3, active:2, recovery:3, dmg:8, type:'mid', pushPx:40, hitstunF:6 },
-      heavy:{ startup:8, active:3, recovery:6, dmg:22, type:'mid', uncrouchable:true, hitstunF:14, pushPx:50 },
-      low:{ startup:4, active:2, recovery:4, dmg:8, type:'mid', antiAir:true, hitstunF:6 },
-      air:{ startup:4, active:3, recovery:4, dmg:10, type:'mid', crossup:true, hitstunF:8 },
+      light:{ startup:4, active:4, recovery:4, dmg:8, type:'mid', pushPx:40, hitstunF:6 },
+      heavy:{ startup:8, active:4, recovery:7, dmg:22, type:'mid', uncrouchable:true, hitstunF:14, pushPx:50 },
+      low:{ startup:4, active:3, recovery:4, dmg:8, type:'mid', antiAir:true, hitstunF:6 },
+      air:{ startup:4, active:4, recovery:4, dmg:10, type:'mid', crossup:true, hitstunF:8 },
       grab:{ startup:3, active:2, recovery:7, dmg:18, throwPx:140, toCorner:true },
       special:{ cost:30, name:'ROCK SHIELD' },
       signature:{ cost:100, name:'AVALANCHE', dmg:25 },
@@ -36,7 +36,7 @@ export const FIGHTERS = {
   },
   shade:{
     id:'shade', name:'SHADE', icon:'🌑',
-    health:90, dashPx:90, walkSpeed:140, range:{ light:70, heavy:70, low:90 },
+    health:90, dashPx:90, walkSpeed:140, range:{ light:100, heavy:100, low:110 },
     spriteScale: 1.0,
     colors:{ core:'#7a3cff', glow:'#c9a5ff' },
     voice:{ start:'shade_start', special:'shade_special', sig:'shade_sig', win:'shade_win', lose:'shade_lose' },
@@ -53,7 +53,7 @@ export const FIGHTERS = {
   },
   volt:{
     id:'volt', name:'VOLT', icon:'⚡',
-    health:100, dashPx:75, walkSpeed:110, range:{ light:65, heavy:90, low:75 },
+    health:100, dashPx:75, walkSpeed:110, range:{ light:100, heavy:115, low:95 },
     spriteScale: 1.0,
     colors:{ core:'#31d0ff', glow:'#c0f4ff' },
     voice:{ start:'volt_start', special:'volt_special', sig:'volt_sig', win:'volt_win', lose:'volt_lose' },
