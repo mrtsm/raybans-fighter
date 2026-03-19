@@ -124,14 +124,14 @@ export function boot(canvas){
     ctx.textBaseline = 'middle';
 
     // PIXEL
-    ctx.font = '900 52px Orbitron, system-ui';
+    ctx.font = '900 52px Impact, system-ui, sans-serif';
     ctx.fillStyle = '#fff';
     ctx.shadowColor = `rgba(120,240,255,${0.6 + 0.4 * Math.sin(loadT * 3)})`;
     ctx.shadowBlur = 30 + Math.sin(loadT * 3) * 10;
     ctx.fillText('PIXEL', 300, 200);
 
     // BRAWL (bigger, bolder)
-    ctx.font = '900 72px Orbitron, system-ui';
+    ctx.font = '900 72px Impact, system-ui, sans-serif';
     ctx.shadowColor = `rgba(210,150,255,${0.6 + 0.4 * Math.sin(loadT * 3 + 1)})`;
     ctx.shadowBlur = 35 + Math.sin(loadT * 3 + 1) * 10;
     ctx.fillText('BRAWL', 300, 280);
@@ -178,20 +178,20 @@ export function boot(canvas){
     // Loading percentage or "CLICK TO START"
     if(assetsReady && !gameStarted){
       const pulse = 0.6 + 0.4 * Math.sin(loadT * 4);
-      ctx.font = '900 22px Orbitron, system-ui';
+      ctx.font = '900 22px Impact, system-ui, sans-serif';
       ctx.fillStyle = `rgba(255,255,255,${pulse})`;
       ctx.shadowColor = `rgba(120,240,255,${pulse * 0.8})`;
       ctx.shadowBlur = 20;
       ctx.fillText('CLICK TO START', 300, 520);
       ctx.shadowBlur = 0;
     } else {
-      ctx.font = '600 14px Orbitron, system-ui';
+      ctx.font = '600 14px Impact, system-ui, sans-serif';
       ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.2 * Math.sin(loadT * 4)})`;
       ctx.fillText(`LOADING ${Math.round(loadProgress * 100)}%`, 300, 530);
     }
 
     // Bottom tagline
-    ctx.font = '400 11px Orbitron, system-ui';
+    ctx.font = '400 11px Impact, system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.fillText('PREPARE FOR BATTLE', 300, 565);
   }

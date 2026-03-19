@@ -713,7 +713,7 @@ export class Fight {
       c.save();
       c.setTransform(1, 0, 0, 1, 0, 0);
       c.textAlign = 'left';
-      c.font = '700 11px Orbitron, system-ui';
+      c.font = '700 11px Impact, system-ui, sans-serif';
       c.fillStyle = 'rgba(255,215,64,0.65)';
       c.fillText(`🔥 ${this.streak} STREAK`, 16, this.renderer.h - 48);
       c.restore();
