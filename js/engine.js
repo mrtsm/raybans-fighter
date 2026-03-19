@@ -206,9 +206,25 @@ export function boot(canvas){
     ctx.fillText('PREPARE FOR BATTLE', 300, 565);
   }
 
+  let _musicWasPlaying = false;
+
   function frame(){
     const now = performance.now() / 1000;
     let delta = now - last;
+
+    // Frame gap detection: if gap > 500ms, app was backgrounded — stop music
+    if(delta > 0.5 && gameStarted){
+      audio.stopMusic();
+      _musicWasPlaying = true;
+    }
+    // If we just came back from a gap, resume music
+    if(_musicWasPlaying && delta < 0.1){
+      _musicWasPlaying = false;
+      if(game.mode === 'menu' || game.mode === 'splash') audio.playMusic('music_menu');
+      else if(game.mode === 'select') audio.playMusic('music_select');
+      else if(game.mode === 'fight' && game.fight) audio.playMusic('music_' + game.fight.p1.id);
+    }
+
     if(delta > 0.1) delta = 0.1; // tighter cap for 60fps
     last = now;
     acc += delta;

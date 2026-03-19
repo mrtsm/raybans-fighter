@@ -71,7 +71,7 @@ const VOICES = {
  */
 export class AudioManager{
   constructor(){
-    this.master = { music: 0.55, sfx: 0.7, voice: 0.85 };
+    this.master = { music: 0.25, sfx: 1.0, voice: 0.85 };
     this._ready = false;
     this._unlocked = false;
     
