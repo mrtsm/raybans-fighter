@@ -77,6 +77,10 @@
   <script type="module">
     import { boot } from './js/engine.js';
     boot(document.getElementById('game'));
+    // Register service worker for offline caching
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
   </script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 // Shared render helpers + SpriteManager
+const ASSET_VERSION = '20260320';
 
 export const clamp01 = (v)=> Math.max(0, Math.min(1, v));
 export const lerp = (a,b,t)=> a + (b-a)*t;
@@ -193,11 +194,11 @@ export class SpriteManager {
   }
   async loadAll(onProgress) {
     const fighters = ['blaze','granite','shade','volt'];
-    const poses = ['idle','light','heavy','block','jump','crouch','hitstun','ko','special','victory'];
     const bgKeys = ['arena_bg','arena_storm','arena_volcano','arena_shadow','title_bg'];
-    const total = fighters.length * poses.length + bgKeys.length;
+    // Only load backgrounds + idle sprites upfront (9 assets instead of 45+)
+    const total = fighters.length + bgKeys.length;
     let done = 0;
-    const bust = `?v=${Date.now()}`;
+    const bust = `?v=${ASSET_VERSION}`;
     const load = (src) => new Promise((res) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -205,21 +206,47 @@ export class SpriteManager {
       img.onerror = () => { done++; onProgress?.(done/total); res(null); };
       img.src = src + bust;
     });
-    console.log('[Sprites] Loading', total, 'assets in parallel...');
-    // Fire ALL loads in parallel
+    console.log('[Sprites] Loading', total, 'essential assets (idle + backgrounds)...');
     const promises = [];
+    // Load only idle sprites for each fighter (needed for select screen)
     for (const f of fighters) {
       this.sprites[f] = {};
-      for (const p of poses) {
-        promises.push(load(`assets/sprites/${f}/${p}.png`).then(img => { this.sprites[f][p] = img; }));
-      }
+      promises.push(load(`assets/sprites/${f}/idle.png`).then(img => { this.sprites[f].idle = img; }));
     }
     for (const bgKey of bgKeys) {
       promises.push(load(`assets/sprites/${bgKey}.png`).then(img => { this.sprites[bgKey] = img; }));
     }
     await Promise.all(promises);
-    console.log('[Sprites] All loaded');
+    console.log('[Sprites] Essential assets loaded');
     this.loaded = true;
+  }
+
+  /** Lazy-load all poses for a specific fighter (call before fight starts) */
+  async loadFighter(fighterId) {
+    if (this._fighterFullyLoaded?.[fighterId]) return;
+    if (!this._fighterFullyLoaded) this._fighterFullyLoaded = {};
+    const poses = ['light','heavy','block','jump','crouch','hitstun','ko','special','victory'];
+    const bust = `?v=${ASSET_VERSION}`;
+    const load = (src) => new Promise((res) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => res(img);
+      img.onerror = () => res(null);
+      img.src = src + bust;
+    });
+    if (!this.sprites[fighterId]) this.sprites[fighterId] = {};
+    const promises = [];
+    for (const p of poses) {
+      if (!this.sprites[fighterId][p]) {
+        promises.push(load(`assets/sprites/${fighterId}/${p}.png`).then(img => { this.sprites[fighterId][p] = img; }));
+      }
+    }
+    if (promises.length > 0) {
+      console.log(`[Sprites] Lazy-loading ${promises.length} poses for ${fighterId}...`);
+      await Promise.all(promises);
+      console.log(`[Sprites] ${fighterId} fully loaded`);
+    }
+    this._fighterFullyLoaded[fighterId] = true;
   }
   get(fighterId, state, attackKind, attackProgress) {
     const f = this.sprites[fighterId];
@@ -292,7 +319,7 @@ export class SpriteAnimation {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => resolve(null);
-      img.src = src + (src.includes('?') ? '&' : '?') + 'v=' + Date.now();
+      img.src = src + (src.includes('?') ? '&' : '?') + 'v=' + ASSET_VERSION;
     });
 
     const bp = this.basePath;

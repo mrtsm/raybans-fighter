@@ -228,7 +228,7 @@ export class Renderer{
       p.spin = (Math.random()*2-1)*8;
       this.particles.push(p);
     }
-    if(this.particles.length>120) this.particles.splice(0, this.particles.length-120);
+    if(this.particles.length>40) this.particles.splice(0, this.particles.length-40);
   }
 
   updateParticles(dt){

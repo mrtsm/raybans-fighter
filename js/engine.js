@@ -25,12 +25,17 @@ export function boot(canvas){
     mode: 'boot',
     fight: null,
     t: 0,
-    setMode(mode, payload={}){
+    async setMode(mode, payload={}){
       this.mode = mode;
       if(mode === 'splash') ui.enterSplash();
       if(mode === 'menu') ui.enterMenu();
       if(mode === 'select') ui.enterSelect(payload);
       if(mode === 'fight'){
+        // Lazy-load both fighters' full sprite sets before starting
+        await Promise.all([
+          sprites.loadFighter(payload.p1Id),
+          sprites.loadFighter(payload.p2Id),
+        ]);
         this.fight = new Fight({ renderer, input, audio, progression, sprites, ...payload });
         this.fight.start();
       }
@@ -208,6 +213,9 @@ export function boot(canvas){
 
   let _musicWasPlaying = false;
 
+  const RENDER_INTERVAL = 1/30; // 30fps render cap (in seconds)
+  let lastRenderT = 0;
+
   function frame(){
     const now = performance.now() / 1000;
     let delta = now - last;
@@ -259,11 +267,14 @@ export function boot(canvas){
       acc -= DT;
     }
 
-    // render
-    if(game.mode === 'fight' && game.fight){
-      game.fight.render();
-    } else {
-      ui.render();
+    // render at 30fps to reduce GPU heat
+    if(now - lastRenderT >= RENDER_INTERVAL){
+      lastRenderT = now;
+      if(game.mode === 'fight' && game.fight){
+        game.fight.render();
+      } else {
+        ui.render();
+      }
     }
 
     requestAnimationFrame(frame);

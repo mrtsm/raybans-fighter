@@ -7,9 +7,9 @@
   },
   "issues": [
     "INCONSISTENT: blaze has mixed facings: {'LEFT', 'CENTER'}",
-    "INCONSISTENT: granite has mixed facings: {'CENTER', 'LEFT'}",
+    "INCONSISTENT: granite has mixed facings: {'LEFT', 'CENTER'}",
     "INCONSISTENT: shade has mixed facings: {'LEFT', 'CENTER'}",
-    "INCONSISTENT: volt has mixed facings: {'CENTER', 'LEFT'}"
+    "INCONSISTENT: volt has mixed facings: {'LEFT', 'CENTER'}"
   ],
   "pass": false,
   "details": {
@@ -220,11 +220,11 @@
         "total_mass": 30538
       },
       "light": {
-        "com_ratio": 0.4816,
-        "left_pct": 0.5174,
-        "right_pct": 0.4826,
+        "com_ratio": 0.5117,
+        "left_pct": 0.4356,
+        "right_pct": 0.5644,
         "facing": "CENTER",
-        "total_mass": 28589
+        "total_mass": 19050
       },
       "light_followthrough": {
         "com_ratio": 0.4705,
@@ -476,11 +476,11 @@
         "total_mass": 12932
       },
       "light": {
-        "com_ratio": 0.4618,
-        "left_pct": 0.5763,
-        "right_pct": 0.4237,
+        "com_ratio": 0.1951,
+        "left_pct": 1.0,
+        "right_pct": 0.0,
         "facing": "LEFT",
-        "total_mass": 13622
+        "total_mass": 2828
       },
       "light_followthrough": {
         "com_ratio": 0.455,
