@@ -1,14 +1,14 @@
 {
   "total_sprites": 72,
   "facing_counts": {
-    "LEFT": 32,
+    "LEFT": 31,
     "RIGHT": 0,
-    "CENTER": 40
+    "CENTER": 41
   },
   "issues": [
-    "INCONSISTENT: blaze has mixed facings: {'CENTER', 'LEFT'}",
+    "INCONSISTENT: blaze has mixed facings: {'LEFT', 'CENTER'}",
     "INCONSISTENT: granite has mixed facings: {'CENTER', 'LEFT'}",
-    "INCONSISTENT: shade has mixed facings: {'CENTER', 'LEFT'}",
+    "INCONSISTENT: shade has mixed facings: {'LEFT', 'CENTER'}",
     "INCONSISTENT: volt has mixed facings: {'CENTER', 'LEFT'}"
   ],
   "pass": false,
@@ -29,11 +29,11 @@
         "total_mass": 21659
       },
       "heavy": {
-        "com_ratio": 0.4724,
-        "left_pct": 0.6337,
-        "right_pct": 0.3663,
+        "com_ratio": 0.4601,
+        "left_pct": 0.658,
+        "right_pct": 0.342,
         "facing": "LEFT",
-        "total_mass": 18672
+        "total_mass": 14471
       },
       "heavy_followthrough": {
         "com_ratio": 0.4784,
@@ -92,11 +92,11 @@
         "total_mass": 14460
       },
       "light": {
-        "com_ratio": 0.4912,
-        "left_pct": 0.5193,
-        "right_pct": 0.4807,
+        "com_ratio": 0.4953,
+        "left_pct": 0.4511,
+        "right_pct": 0.5489,
         "facing": "CENTER",
-        "total_mass": 17104
+        "total_mass": 18575
       },
       "light_followthrough": {
         "com_ratio": 0.5172,
@@ -113,11 +113,11 @@
         "total_mass": 13331
       },
       "special": {
-        "com_ratio": 0.4745,
-        "left_pct": 0.5743,
-        "right_pct": 0.4257,
-        "facing": "LEFT",
-        "total_mass": 14401
+        "com_ratio": 0.5083,
+        "left_pct": 0.4619,
+        "right_pct": 0.5381,
+        "facing": "CENTER",
+        "total_mass": 20327
       },
       "special_followthrough": {
         "com_ratio": 0.4482,
@@ -157,11 +157,11 @@
         "total_mass": 30521
       },
       "heavy": {
-        "com_ratio": 0.5022,
-        "left_pct": 0.4923,
-        "right_pct": 0.5077,
+        "com_ratio": 0.4885,
+        "left_pct": 0.5189,
+        "right_pct": 0.4811,
         "facing": "CENTER",
-        "total_mass": 30492
+        "total_mass": 25690
       },
       "heavy_followthrough": {
         "com_ratio": 0.4964,
@@ -220,11 +220,11 @@
         "total_mass": 30538
       },
       "light": {
-        "com_ratio": 0.4997,
-        "left_pct": 0.4932,
-        "right_pct": 0.5068,
+        "com_ratio": 0.4816,
+        "left_pct": 0.5174,
+        "right_pct": 0.4826,
         "facing": "CENTER",
-        "total_mass": 33217
+        "total_mass": 28589
       },
       "light_followthrough": {
         "com_ratio": 0.4705,
@@ -241,11 +241,11 @@
         "total_mass": 36026
       },
       "special": {
-        "com_ratio": 0.492,
-        "left_pct": 0.512,
-        "right_pct": 0.488,
+        "com_ratio": 0.487,
+        "left_pct": 0.4993,
+        "right_pct": 0.5007,
         "facing": "CENTER",
-        "total_mass": 28474
+        "total_mass": 35637
       },
       "special_followthrough": {
         "com_ratio": 0.5064,

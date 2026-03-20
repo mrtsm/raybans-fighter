@@ -161,6 +161,10 @@ export class Fight {
     this.p2.momentum = 0;
     this.p1.charging = false;
     this.p2.charging = false;
+    this.p1.chargeT = this.p2.chargeT = 0;
+    this.p1.chargePct = this.p2.chargePct = 0;
+    this.p1.chargeTier = this.p2.chargeTier = 0;
+    this.p1._autoFire = this.p2._autoFire = false;
     // Reset parry/push block state
     this.p1.parryWindowF = this.p2.parryWindowF = 0;
     this.p1.parryCooldownF = this.p2.parryCooldownF = 0;
@@ -276,6 +280,20 @@ export class Fight {
     this.p1.update(effectiveDt, this.arena, this._gravMul);
     this.p2.update(effectiveDt, this.arena, this._gravMul);
 
+    // ── Auto-fire charged specials at max charge ──
+    if (this.p1._autoFire) {
+      this.p1._autoFire = false;
+      this._releaseChargedSpecial(this.p1, this.p2, true);
+    }
+    if (this.p2._autoFire) {
+      this.p2._autoFire = false;
+      this._releaseChargedSpecial(this.p2, this.p1, false);
+    }
+
+    // ── Charge VFX particles ──
+    this._updateChargeParticles(this.p1);
+    this._updateChargeParticles(this.p2);
+
     // ── Push apart (MIN_SEPARATION = 60px) ──
     const MIN_SEPARATION = 60;
     const dx = this.p2.x - this.p1.x;
@@ -358,8 +376,12 @@ export class Fight {
         this.p1.startJump();
       }
 
-      // Left click → light attack (ALWAYS, no exceptions)
+      // Left click → RELEASE CHARGE if charging, otherwise light attack
       if (a === 'light') {
+        if (this.p1.charging) {
+          this._releaseChargedSpecial(this.p1, this.p2, true);
+          continue;
+        }
         if (!this.p1.onGround) {
           this.p1.startAttack('air');
           this.lastMove.lastWasJumpAtk = true;
@@ -375,7 +397,7 @@ export class Fight {
         this.lastMove.lastWasJumpAtk = false;
       }
 
-      // Right click → context-sensitive: push block if pressured, special if idle
+      // Right click → context-sensitive: push block if pressured, START CHARGE if idle
       if (a === 'special') {
         // Check if in hitstun or blocking — push block!
         const recentHitstun = this.p1.hitstunF > 0 || this.p1.state === 'hit';
@@ -385,25 +407,23 @@ export class Fight {
         if (recentHitstun || isBlocking || justExitedHitstun) {
           // Push block attempt
           if (this.p1.startPushBlock()) {
-            // Push opponent back 80px
-            const pushDir = this.p1.facing; // push in the direction we're facing
-            this.p2.vx += pushDir * 500; // velocity-based push
+            const pushDir = this.p1.facing;
+            this.p2.vx += pushDir * 500;
             this.p2.x += pushDir * 80;
             this.p2.x = Math.max(this.arena.leftWall, Math.min(this.arena.rightWall, this.p2.x));
-
-            // Visual + audio
             this.audio.play('sfx_block', { vol: 1.0, rate: 0.7 });
             this.renderer.doShake(6, 0.15);
             this.renderer.doFreeze(2);
-
-            // Blue shockwave effect
             this.renderer.addPushBlockEffect(this.p1.x, this.p1.y - 50, pushDir);
           }
-        } else {
-          // Normal special attack
-          this._trySpecialOrSig(this.p1, this.p2, true, 0.6);
+        } else if (!this.p1.charging) {
+          // Start charging special
+          if (this.p1.startCharge()) {
+            this.audio.play('sfx_charge');
+          }
         }
       }
+
 
       // UI
       if (a === 'ui_confirm') { /* handled by engine/ui */ }
@@ -455,6 +475,8 @@ export class Fight {
       if (a === 'heavy')      this.p2.startAttack('heavy');
       if (a === 'grab')       this.p2.startAttack('grab');
       if (a === 'special')    this._trySpecialOrSig(this.p2, this.p1, false, 0.6);
+      if (a === 'start_charge') this.p2.startCharge();
+      if (a === 'release_charge') this._releaseChargedSpecial(this.p2, this.p1, false);
     }
   }
 
@@ -498,6 +520,288 @@ export class Fight {
       this.matchTotals.specials++;
       this.events.push({ type: 'momentum', value: f.momentum });
       this.audio.play(f.def.voice.special);
+    }
+  }
+
+  // ──────────────────────────────────────────
+  //  CHARGED SPECIAL SYSTEM
+  // ──────────────────────────────────────────
+
+  _releaseChargedSpecial(f, opp, isPlayer) {
+    const { tier, time } = f.releaseCharge();
+    if (tier <= 0) return;
+
+    // Damage scales with tier
+    const dmgTable = { 1: 15, 2: 30, 3: 50 };
+    const baseDmg = dmgTable[tier] || 15;
+    const dmg = Math.round(baseDmg * (this.mods.dmgMul || 1));
+
+    // Fire the per-fighter charged special
+    this._fireChargedSpecial(f, opp, tier, dmg, isPlayer);
+
+    // Tracking
+    if (isPlayer) {
+      this.matchTotals.specials++;
+      f.stats.specials++;
+      this.events.push({ type: 'charged_special', tier, fighter: f.id });
+    }
+  }
+
+  _fireChargedSpecial(f, opp, tier, dmg, isPlayer) {
+    const id = f.id;
+
+    // ── SCREEN EFFECTS (scale with tier) ──
+    const shakeIntensity = [0, 6, 12, 20][tier];
+    const shakeDur = [0, 0.2, 0.35, 0.6][tier];
+    const freezeFrames = [0, 3, 5, 8][tier];
+    this.renderer.doShake(shakeIntensity, shakeDur);
+    this.renderer.doFreeze(freezeFrames);
+
+    if (tier >= 2) {
+      this.renderer.doFlash(f.color, tier === 3 ? 0.4 : 0.2);
+    }
+    if (tier === 3) {
+      // Epic zoom for tier 3
+      const midX = (f.x + opp.x) / 2;
+      const midY = (f.y + opp.y) / 2;
+      this.renderer.doZoom(1.2, 0.8, midX, midY);
+    }
+
+    // Audio
+    this.audio.play(tier === 3 ? 'sfx_signature' : tier === 2 ? 'sfx_heavy' : 'sfx_light', { vol: 0.7 + tier * 0.1 });
+
+    // ── PER-FIGHTER SPECIALS ──
+    if (id === 'blaze') {
+      // INFERNO BLAST: T1=fire wave, T2=flamethrower, T3=DRAGON BREATH
+      if (tier === 1) {
+        // Fire wave projectile
+        this.combat.projectiles.push({
+          x: f.x + f.facing * 40, y: f.y - 50,
+          vx: f.facing * 380, r: 12, dmg,
+          from: f, type: 'mid', high: false,
+          color: '#ff6a2f', sfx: 'sfx_fire'
+        });
+        this.audio.play('sfx_fire');
+      } else if (tier === 2) {
+        // Flamethrower cone — 3 projectiles spread
+        for (let i = -1; i <= 1; i++) {
+          this.combat.projectiles.push({
+            x: f.x + f.facing * 40, y: f.y - 50 + i * 25,
+            vx: f.facing * 350, r: 10, dmg: Math.round(dmg * 0.5),
+            from: f, type: 'mid', high: i < 0,
+            color: i === 0 ? '#ffaa00' : '#ff4a2f', sfx: 'sfx_fire'
+          });
+        }
+        this.audio.play('sfx_fire');
+        // Fire particles
+        this.renderer.addParticles(makeHitParticles('#ff6a2f', f.x + f.facing * 60, f.y - 50, 20));
+      } else {
+        // DRAGON BREATH — massive beam across the screen
+        // Direct hit on opponent if in front
+        const oppInFront = (f.facing === 1 && opp.x > f.x) || (f.facing === -1 && opp.x < f.x);
+        if (oppInFront) {
+          const res = opp.takeHit({ dmg, type: 'mid', from: f });
+          if (res.hit) {
+            opp.hitstunF = 20;
+            opp.vx += f.facing * 500;
+          }
+        }
+        // Beam projectiles for visual
+        for (let i = 0; i < 5; i++) {
+          this.combat.projectiles.push({
+            x: f.x + f.facing * (50 + i * 60), y: f.y - 50 + (Math.random() - 0.5) * 30,
+            vx: f.facing * 600, r: 8, dmg: 0, // visual only, already applied direct hit
+            from: f, type: 'mid', high: false,
+            color: '#ffcc00', sfx: 'sfx_fire', dead: false
+          });
+        }
+        this.audio.play('sfx_fire');
+        this.renderer.addParticles(makeHitParticles('#ffcc00', f.x + f.facing * 80, f.y - 50, 30));
+        this.renderer.addParticles(makeHitParticles('#ff4a2f', f.x + f.facing * 120, f.y - 40, 20));
+        // Tier 3 banner
+        this.renderer.addChargedSpecialBanner(f.id, tier);
+      }
+    }
+
+    if (id === 'granite') {
+      // METEOR FIST: T1=boulder throw, T2=ground slam, T3=METEOR DROP
+      if (tier === 1) {
+        // Boulder projectile
+        this.combat.projectiles.push({
+          x: f.x + f.facing * 40, y: f.y - 60,
+          vx: f.facing * 300, r: 14, dmg,
+          from: f, type: 'mid', high: false,
+          color: '#9aa2ad', sfx: 'sfx_rock'
+        });
+        this.audio.play('sfx_rock');
+      } else if (tier === 2) {
+        // Ground slam shockwave — hits if opponent is on the ground
+        if (opp.onGround) {
+          const res = opp.takeHit({ dmg, type: 'low', from: f });
+          if (res.hit) {
+            opp.vy = -200; // pop up
+            opp.onGround = false;
+            opp.hitstunF = 14;
+          }
+        }
+        this.audio.play('sfx_rock');
+        // Shockwave particles along ground
+        for (let i = 0; i < 15; i++) {
+          const px = f.x + f.facing * (20 + i * 30);
+          this.renderer.addParticles(makeHitParticles('#9aa2ad', px, this.arena.floorY + 100, 3));
+        }
+        this.renderer.addParticles(makeHitParticles('#e2e6ea', f.x, f.y, 16));
+      } else {
+        // METEOR DROP — leap up, crash down on enemy
+        // Teleport above opponent and slam
+        f.x = opp.x;
+        f.y = this.arena.floorY - 100;
+        f.vy = 800; // slam down fast
+        f.onGround = false;
+        // Direct hit
+        const res = opp.takeHit({ dmg, type: 'overhead', from: f });
+        if (res.hit) {
+          opp.hitstunF = 22;
+          opp.vy = 50; // ground bounce
+        }
+        this.audio.play('sfx_rock');
+        this.renderer.addParticles(makeHitParticles('#9aa2ad', opp.x, opp.y - 40, 30));
+        this.renderer.addParticles(makeHitParticles('#e2e6ea', opp.x, opp.y, 20));
+        this.renderer.addChargedSpecialBanner(f.id, tier);
+      }
+    }
+
+    if (id === 'shade') {
+      // VOID STRIKE: T1=shadow clone dash, T2=teleport behind + slash, T3=DIMENSIONAL RIFT
+      if (tier === 1) {
+        // Shadow clone dash — dash forward dealing damage
+        const dashDist = 120;
+        const oldX = f.x;
+        f.x = clamp(f.x + f.facing * dashDist, this.arena.leftWall, this.arena.rightWall);
+        const dist = Math.abs(f.x - opp.x);
+        if (dist < 60) {
+          opp.takeHit({ dmg, type: 'mid', from: f });
+          opp.hitstunF = 8;
+          this.renderer.addParticles(makeHitParticles('#7a3cff', opp.x, opp.y - 50, 10));
+        }
+        this.audio.play('sfx_shadow');
+        // Trail from old position
+        this.renderer.addParticles(makeHitParticles('#c9a5ff', oldX, f.y - 50, 8));
+      } else if (tier === 2) {
+        // Teleport behind + slash
+        f.x = clamp(opp.x - opp.facing * 60, this.arena.leftWall, this.arena.rightWall);
+        f.facing *= -1;
+        const res = opp.takeHit({ dmg, type: 'mid', from: f });
+        if (res.hit) {
+          opp.hitstunF = 14;
+          opp.vx += f.facing * 300;
+        }
+        this.audio.play('sfx_shadow');
+        this.renderer.addParticles(makeHitParticles('#7a3cff', opp.x, opp.y - 50, 16));
+        this.renderer.addParticles(makeHitParticles('#c9a5ff', f.x, f.y - 50, 12));
+      } else {
+        // DIMENSIONAL RIFT — opens portal, slashes through, unblockable
+        opp.blocking = 'none'; // unblockable
+        // Teleport behind
+        f.x = clamp(opp.x - opp.facing * 50, this.arena.leftWall, this.arena.rightWall);
+        f.facing *= -1;
+        const res = opp.takeHit({ dmg, type: 'mid', from: f });
+        if (res.hit) {
+          opp.hitstunF = 22;
+          opp.vx += f.facing * 400;
+        }
+        this.audio.play('sfx_shadow');
+        this.audio.play('sfx_signature');
+        // Massive void particles
+        this.renderer.addParticles(makeHitParticles('#7a3cff', opp.x, opp.y - 50, 30));
+        this.renderer.addParticles(makeHitParticles('#c9a5ff', (f.x + opp.x) / 2, f.y - 80, 20));
+        this.renderer.addParticles(makeHitParticles('#3a0a6e', opp.x, opp.y, 15));
+        this.renderer.addChargedSpecialBanner(f.id, tier);
+      }
+    }
+
+    if (id === 'volt') {
+      // GIGAVOLT CANNON: T1=lightning bolt, T2=thunder beam, T3=GIGAVOLT fills screen
+      if (tier === 1) {
+        // Lightning bolt projectile
+        this.combat.projectiles.push({
+          x: f.x + f.facing * 40, y: f.y - 55,
+          vx: f.facing * 550, r: 10, dmg,
+          from: f, type: 'high', high: true,
+          color: '#31d0ff', sfx: 'sfx_lightning'
+        });
+        this.audio.play('sfx_lightning');
+      } else if (tier === 2) {
+        // Thunder beam — 2 bolts
+        for (let i = -1; i <= 1; i += 2) {
+          this.combat.projectiles.push({
+            x: f.x + f.facing * 40, y: f.y - 55 + i * 20,
+            vx: f.facing * 480, r: 10, dmg: Math.round(dmg * 0.6),
+            from: f, type: 'mid', high: i < 0,
+            color: '#31d0ff', sfx: 'sfx_lightning'
+          });
+        }
+        this.audio.play('sfx_lightning');
+        this.renderer.addParticles(makeHitParticles('#31d0ff', f.x + f.facing * 60, f.y - 55, 16));
+      } else {
+        // GIGAVOLT — massive beam that fills the screen
+        const oppInFront = (f.facing === 1 && opp.x > f.x) || (f.facing === -1 && opp.x < f.x);
+        if (oppInFront) {
+          opp.blocking = 'none'; // unblockable
+          const res = opp.takeHit({ dmg, type: 'mid', from: f });
+          if (res.hit) {
+            opp.hitstunF = 20;
+            opp.vx += f.facing * 500;
+          }
+        }
+        // Visual beam projectiles
+        for (let i = 0; i < 6; i++) {
+          this.combat.projectiles.push({
+            x: f.x + f.facing * (40 + i * 50), y: f.y - 55 + (Math.random() - 0.5) * 40,
+            vx: f.facing * 700, r: 8, dmg: 0,
+            from: f, type: 'mid', high: false,
+            color: '#80e0ff', sfx: 'sfx_lightning', dead: false
+          });
+        }
+        this.audio.play('sfx_lightning');
+        this.renderer.addParticles(makeHitParticles('#31d0ff', f.x + f.facing * 80, f.y - 55, 30));
+        this.renderer.addParticles(makeHitParticles('#c0f4ff', f.x + f.facing * 140, f.y - 50, 20));
+        this.renderer.addChargedSpecialBanner(f.id, tier);
+      }
+    }
+
+    // Scoring for player
+    if (isPlayer) {
+      const pts = tier === 3 ? 1000 : tier === 2 ? 500 : 200;
+      this.scoring.onHit({ kind: 'charged_special', points: pts, dmg: dmg });
+    }
+  }
+
+  _updateChargeParticles(f) {
+    if (!f.charging) return;
+    // Spawn particles based on charge tier
+    const interval = f.chargeTier >= 3 ? 0.03 : f.chargeTier >= 2 ? 0.06 : 0.1;
+    if (f._chargeParticleT >= interval) {
+      f._chargeParticleT = 0;
+      const count = f.chargeTier >= 3 ? 5 : f.chargeTier >= 2 ? 3 : 1;
+      const color = f.color;
+      const glow = f.glow;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 30 + Math.random() * 40;
+        const px = f.x + Math.cos(angle) * dist;
+        const py = (f.y - 50) + Math.sin(angle) * dist;
+        this.renderer.addParticles([{
+          x: px, y: py,
+          vx: (f.x - px) * 3, // particles converge toward fighter
+          vy: ((f.y - 50) - py) * 3,
+          g: 0,
+          s: 2 + f.chargeTier,
+          t0: 0.3,
+          t: 0.3,
+          color: Math.random() > 0.5 ? color : glow,
+        }]);
+      }
     }
   }
 
@@ -793,6 +1097,13 @@ export class Fight {
     this.renderer.drawPushBlockEffects(1/60);
     this.renderer.drawComboCounter();
     this.renderer.drawDamageNumbers(this.combat.damageNumbers);
+
+    // Charge glow (drawn around charging fighters)
+    this.renderer.drawChargeGlow(this.p1, 1/60);
+    this.renderer.drawChargeGlow(this.p2, 1/60);
+
+    // Charged special banner (DRAGON BREATH, etc.)
+    this.renderer.drawChargedSpecialBanner(1/60);
 
     // Win streak
     if (this.streak > 0) {

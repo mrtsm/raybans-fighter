@@ -59,6 +59,18 @@ export class AI {
       this._cooldown = 0;
     }
 
+    // AI charge release logic — if charging, count down and release
+    if (self.charging) {
+      if (this._aiChargeReleaseT !== undefined) {
+        this._aiChargeReleaseT -= dt;
+        if (this._aiChargeReleaseT <= 0) {
+          this._aiChargeReleaseT = undefined;
+          return [{ action: 'release_charge' }];
+        }
+      }
+      return actions; // Don't do anything else while charging
+    }
+
     // Can't act while in hitstun or mid-attack
     if (!self.canAct()) {
       // But can push block during hitstun if has momentum
@@ -100,8 +112,15 @@ export class AI {
     // ── IN RANGE: attack! ──
     const attackRange = 90;
     if (dist < attackRange) {
-      // Decide attack type
-      if (opts.aiCanSpecial && Math.random() < this.specialChance) {
+      // Decide attack type — sometimes start charging a special
+      if (Math.random() < this.specialChance * 0.5 && !self.charging) {
+        actions.push({ action: 'start_charge' });
+        // AI will release after a random delay based on difficulty
+        const chargeTime = this.difficulty === 'nightmare' ? 1.5 + Math.random() * 0.5
+          : this.difficulty === 'hard' ? 0.8 + Math.random() * 0.7
+          : 0.3 + Math.random() * 0.5;
+        this._aiChargeReleaseT = chargeTime;
+      } else if (opts.aiCanSpecial && Math.random() < this.specialChance) {
         actions.push({ action: 'special' });
       } else if (Math.random() < 0.7) {
         actions.push({ action: 'light' });

@@ -51,10 +51,13 @@ export class Fighter {
     this.guardBroken = false;
     this.guardBrokenT = 0;
 
-    // Charge (renderer compat)
+    // Charged special system
     this.charging = false;
     this.chargeT = 0;
     this.chargePct = 0;
+    this.chargeTier = 0;         // 0=none, 1/2/3
+    this._chargeParticleT = 0;   // timer for spawning charge particles
+    this._autoFire = false;      // flag for auto-fire at max charge
 
     // Dash (renderer compat)
     this.dashIframesF = 0;
@@ -235,23 +238,40 @@ export class Fighter {
     return true;
   }
 
-  // ── Charging (special charge for compatibility) ──
+  // ── Charged Special System ──
 
   startCharge() {
-    if (this.charging || this.attack || this.hitstunF > 0) return;
+    if (this.charging || this.attack || this.hitstunF > 0) return false;
+    if (this.state === 'ko' || this.state === 'victory') return false;
     this.charging = true;
     this.chargeT = 0;
     this.chargePct = 0;
+    this.chargeTier = 0;
+    this._chargeParticleT = 0;
     this.state = 'special_charge';
+    this.stateT = 0;
+    this.blocking = 'none';
+    return true;
   }
 
   releaseCharge() {
+    if (!this.charging) return { tier: 0, time: 0 };
     const t = this.chargeT;
+    const tier = this.chargeTier;
     this.charging = false;
     this.chargeT = 0;
     this.chargePct = 0;
+    this.chargeTier = 0;
     if (this.state === 'special_charge') this.state = 'idle';
-    return t;
+    return { tier: Math.max(1, tier), time: t };
+  }
+
+  cancelCharge() {
+    this.charging = false;
+    this.chargeT = 0;
+    this.chargePct = 0;
+    this.chargeTier = 0;
+    if (this.state === 'special_charge') this.state = 'idle';
   }
 
   // ── Attack ──
@@ -378,11 +398,13 @@ export class Fighter {
     this.hitstunF = 9; // default, combat.js overrides per-move
     this.state = 'hit';
     this.attack = null;
+    // Cancel charge if hit while charging
+    if (this.charging) this.cancelCharge();
     this.charging = false;
     this.chargePct = 0;
     this.comboRoute = [];
     this.consecutiveBlocks = 0;
-    return { hit: true, dmg };
+    return { hit: true, dmg, wasCharging: true };
   }
 
   // ── Per-frame update ──
@@ -481,10 +503,21 @@ export class Fighter {
       if (this.shieldT <= 0) { this.shieldT = 0; this.shieldHits = 0; }
     }
 
-    // Charge timer
+    // Charge timer — tracks tiers and auto-fires at max
     if (this.charging) {
       this.chargeT += dt;
-      this.chargePct = Math.min(1, this.chargeT / 1.0);
+      this.chargePct = Math.min(1, this.chargeT / 2.0); // 2s to full
+      // Tier thresholds: T1=0-0.7s, T2=0.7-1.4s, T3=1.4-2.0s
+      if (this.chargeT >= 1.4) this.chargeTier = 3;
+      else if (this.chargeT >= 0.7) this.chargeTier = 2;
+      else this.chargeTier = 1;
+      // Auto-fire at max charge (2.0s)
+      if (this.chargeT >= 2.0) {
+        this.chargeTier = 3;
+        this._autoFire = true; // fight.js reads this flag
+      }
+      // Spawn charge particles timer
+      this._chargeParticleT += dt;
     }
 
     // Attack frame progression

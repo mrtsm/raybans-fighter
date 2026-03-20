@@ -1054,4 +1054,120 @@ export class Renderer{
       c.restore();
     }
   }
+
+  // ── Charged Special Banner (DRAGON BREATH, METEOR DROP, etc.) ──
+  addChargedSpecialBanner(fighterId, tier) {
+    if (tier < 3) return; // Only show banner for tier 3
+    const names = {
+      blaze: 'DRAGON BREATH',
+      granite: 'METEOR DROP',
+      shade: 'DIMENSIONAL RIFT',
+      volt: 'GIGAVOLT CANNON',
+    };
+    const colors = {
+      blaze: '#ffcc00',
+      granite: '#e2e6ea',
+      shade: '#c9a5ff',
+      volt: '#80e0ff',
+    };
+    this._chargedBanner = {
+      text: names[fighterId] || 'ULTIMATE',
+      color: colors[fighterId] || '#ffffff',
+      t: 1.5, // duration
+      maxT: 1.5,
+    };
+  }
+
+  drawChargedSpecialBanner(dt) {
+    if (!this._chargedBanner || this._chargedBanner.t <= 0) return;
+    const b = this._chargedBanner;
+    b.t -= dt;
+    const c = this.ctx;
+    const progress = 1 - (b.t / b.maxT);
+    const alpha = progress < 0.1 ? progress / 0.1 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
+
+    c.save();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+
+    // Background stripe
+    c.globalAlpha = alpha * 0.7;
+    c.fillStyle = 'rgba(0,0,0,0.6)';
+    c.fillRect(0, this.h / 2 - 30, this.w, 60);
+
+    // Glowing text
+    c.globalAlpha = alpha;
+    c.font = '900 32px Impact, system-ui, sans-serif';
+    c.fillStyle = b.color;
+    c.shadowColor = b.color;
+    c.shadowBlur = 25;
+    c.fillText(b.text, this.w / 2, this.h / 2);
+
+    // Second pass for extra glow
+    c.globalAlpha = alpha * 0.5;
+    c.shadowBlur = 40;
+    c.fillText(b.text, this.w / 2, this.h / 2);
+
+    c.restore();
+
+    if (b.t <= 0) this._chargedBanner = null;
+  }
+
+  // ── Charge Glow (drawn around fighter while charging) ──
+  drawChargeGlow(f, dt) {
+    if (!f.charging) return;
+    const c = this.ctx;
+    const tier = f.chargeTier || 1;
+    const pct = f.chargePct || 0;
+    const now = performance.now();
+
+    c.save();
+    c.globalCompositeOperation = 'screen';
+
+    // Pulsing glow ring around fighter
+    const baseRadius = 40 + tier * 15;
+    const pulse = 1 + 0.15 * Math.sin(now / (150 - tier * 30));
+    const radius = baseRadius * pulse;
+    const alpha = 0.3 + pct * 0.5;
+
+    const grad = c.createRadialGradient(f.x, f.y - 40, 0, f.x, f.y - 40, radius);
+    grad.addColorStop(0, withAlpha(f.color, alpha * 0.8));
+    grad.addColorStop(0.5, withAlpha(f.glow || f.color, alpha * 0.4));
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = grad;
+    c.beginPath();
+    c.arc(f.x, f.y - 40, radius, 0, Math.PI * 2);
+    c.fill();
+
+    // Tier indicator rings
+    if (tier >= 2) {
+      c.strokeStyle = withAlpha(f.glow || f.color, 0.6);
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(f.x, f.y - 40, radius * 0.7, 0, Math.PI * 2);
+      c.stroke();
+    }
+    if (tier >= 3) {
+      c.strokeStyle = withAlpha('#ffffff', 0.8);
+      c.lineWidth = 3;
+      const t3pulse = 1 + 0.2 * Math.sin(now / 80);
+      c.beginPath();
+      c.arc(f.x, f.y - 40, radius * 0.9 * t3pulse, 0, Math.PI * 2);
+      c.stroke();
+    }
+
+    // Tier number above head
+    c.globalCompositeOperation = 'source-over';
+    c.globalAlpha = 0.9;
+    c.textAlign = 'center';
+    c.font = '900 16px Impact, system-ui, sans-serif';
+    c.fillStyle = tier === 3 ? '#ffdd44' : tier === 2 ? '#ffffff' : 'rgba(255,255,255,0.7)';
+    c.shadowColor = f.color;
+    c.shadowBlur = 12;
+    const tierLabel = tier === 3 ? 'MAX!' : `T${tier}`;
+    c.fillText(tierLabel, f.x, f.y - 100 - tier * 5);
+
+    c.restore();
+  }
 }
