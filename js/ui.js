@@ -410,7 +410,7 @@ export class UI {
 
   _cycleFighter(dir){
     const unlocks=this.progression.unlocks();
-    const list = ['blaze','granite','shade'].concat(unlocks.volt?['volt']:[]);
+    const list = ['blaze','granite','shade','volt'];
     const i=list.indexOf(this.sel.fighter);
     const ni=(i+dir+list.length)%list.length;
     this.sel.fighter=list[ni];
