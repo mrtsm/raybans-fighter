@@ -265,7 +265,7 @@ export class UI {
       if(this._hsView){
         // High score view — any input goes back
         for(const a of acts){
-          if(a==='ui_back' || a==='ui_confirm' || a==='light' || a==='heavy' || a==='special'){
+          if(a==='ui_back' || a==='ui_confirm' || a==='light' || a==='strike' || a==='heavy' || a==='heavy_strike' || a==='special' || a==='ultimate'){
             this.audio.play('sfx_nav');
             this._hsView = false;
           }
@@ -279,7 +279,7 @@ export class UI {
 
       for(const a of acts){
         // Up navigation: up arrow (jump) or up key tap
-        if(a==='jump' || a==='dash_left'){
+        if(a==='jump' || a==='dash_left' || a==='dive_slam'){
           if(this._menuNavCooldown <= 0){
             this._menuSel = (this._menuSel - 1 + this._menuItems.length) % this._menuItems.length;
             this.audio.play('sfx_nav');
@@ -287,7 +287,7 @@ export class UI {
           }
         }
         // Down navigation: down arrow (down_hold) or down key tap
-        if(a==='crouch' || a==='dash_right'){
+        if(a==='crouch' || a==='dash_right' || a==='parry' || a==='uppercut'){
           if(this._menuNavCooldown <= 0){
             this._menuSel = (this._menuSel + 1) % this._menuItems.length;
             this.audio.play('sfx_nav');
@@ -301,7 +301,7 @@ export class UI {
         if(a==='walk_right_hold'){
           // Ignore continuous walk_right_hold in menu to prevent rapid-fire
         }
-        if(a==='ui_confirm' || a==='light'){
+        if(a==='ui_confirm' || a==='light' || a==='strike'){
           this.audio.play('sfx_select');
           if(this._menuSel === 0){
             // ARCADE
@@ -337,7 +337,7 @@ export class UI {
       if(!this._selectSwipeDone) this._selectSwipeDone = false;
 
       for(const a of acts){
-        if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); return; }
+        if(a==='ui_back' || a==='heavy' || a==='heavy_strike' || a==='special' || a==='ultimate') { this.audio.play('sfx_nav'); this.navigate?.('menu'); return; }
         if(a==='dash_left') { this._cycleFighter(-1); }
         if(a==='dash_right') { this._cycleFighter(+1); }
         if(a==='walk_left_hold') {
@@ -348,7 +348,7 @@ export class UI {
         }
         if(a==='jump') { this._cycleDifficulty(+1); }
         if(a==='crouch' || a==='down_hold') { this._cycleDifficulty(-1); }
-        if(a==='ui_confirm' || a==='light') { this.audio.play('sfx_select'); this._startFight(); }
+        if(a==='ui_confirm' || a==='light' || a==='strike') { this.audio.play('sfx_select'); this._startFight(); }
       }
       // Reset swipe flag when no walk actions are queued (swipe ended)
       const hasWalk = acts.some(a => a === 'walk_left_hold' || a === 'walk_right_hold');
@@ -393,7 +393,7 @@ export class UI {
           if(a==='walk_left_hold'){
             if(this._hsEntry.pos > 0 && this._hsNavCooldown <= 0) { this._hsEntry.pos--; this.audio.play('sfx_nav'); this._hsNavCooldown = 0.22; }
           }
-          if(a==='ui_confirm' || a==='light'){
+          if(a==='ui_confirm' || a==='light' || a==='strike'){
             this._insertHighScore(this._hsEntry.initials, this._hsEntry.score, this._hsEntry.fighter, this._hsEntry.daily);
             this._hsEntry.active = false;
             this.audio.play('sfx_select');
@@ -401,8 +401,8 @@ export class UI {
         }
       } else {
         for(const a of acts){
-          if(a==='ui_confirm' || a==='light') { this.audio.play('sfx_select'); this.navigate?.('select'); return; }
-          if(a==='ui_back' || a==='heavy' || a==='special') { this.audio.play('sfx_nav'); this.navigate?.('menu'); return; }
+          if(a==='ui_confirm' || a==='light' || a==='strike') { this.audio.play('sfx_select'); this.navigate?.('select'); return; }
+          if(a==='ui_back' || a==='heavy' || a==='heavy_strike' || a==='special' || a==='ultimate') { this.audio.play('sfx_nav'); this.navigate?.('menu'); return; }
         }
       }
     }
