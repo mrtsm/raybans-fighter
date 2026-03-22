@@ -67,7 +67,24 @@ export const FIGHTERS = {
       special:{ cost:30, name:'LIGHTNING BOLT', dmg:8, stunF:3 },
       signature:{ cost:100, name:'STORM SURGE', dmg:25 },
     },
-  }
+  },
+  marina:{
+    id:'marina', name:'MARINA', icon:'⚓',
+    health:95, dashPx:85, walkSpeed:260, range:{ light:105, heavy:115, low:90 },
+    spriteScale: 1.0,
+    colors:{ core:'#1e90ff', glow:'#87ceeb' },
+    voice:{ start:'marina_start', special:'marina_special', sig:'marina_sig', win:'marina_win', lose:'marina_lose' },
+    theme:'music_marina',
+    moves:{
+      light:{ startup:3, active:3, recovery:3, dmg:8, type:'mid', hitstunF:6 },
+      heavy:{ startup:5, active:4, recovery:5, dmg:18, type:'overhead', hitstunF:12, pushPx:35 },
+      low:{ startup:3, active:2, recovery:3, dmg:8, type:'low', pullPx:30, hitstunF:6 },
+      air:{ startup:2, active:3, recovery:3, dmg:10, type:'overhead', hitstunF:8 },
+      grab:{ startup:3, active:2, recovery:6, dmg:14, throwPx:130 },
+      special:{ cost:30, name:'HOOK CAST', dmg:10, pullPx:60 },
+      signature:{ cost:100, name:'TIDAL CRUSH', dmg:25 },
+    },
+  },
 };
 
 export const MASTERIES = {

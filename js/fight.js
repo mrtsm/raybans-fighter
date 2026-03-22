@@ -103,7 +103,7 @@ export class Fight {
     this._bannerT = 0;
     this.renderer.spriteAnimations = this.spriteAnimations;
 
-    const bgMap = { blaze: 2, volt: 1, shade: 3, granite: 0 };
+    const bgMap = { blaze: 2, volt: 1, shade: 3, granite: 0, marina: 4 };
     if (this.renderer.setArenaBg) this.renderer.setArenaBg(bgMap[this.p1.id] ?? 0);
   }
 
@@ -586,6 +586,27 @@ export class Fight {
       this.audio.play('sfx_lightning');
       this.renderer.addParticles(makeHitParticles('#31d0ff', f.x + f.facing * 80, f.y - 55, 30));
       this.renderer.addParticles(makeHitParticles('#c0f4ff', f.x + f.facing * 140, f.y - 50, 20));
+    }
+
+    if (id === 'marina') {
+      // TIDAL CRUSH — summons a massive wave that crashes across the screen
+      const oppInFront = (f.facing === 1 && opp.x > f.x) || (f.facing === -1 && opp.x < f.x);
+      if (oppInFront) {
+        opp.blocking = 'none';
+        const res = opp.takeHit({ dmg, type: 'mid', from: f });
+        if (res.hit) { opp.hitstunF = 20; opp.vx += f.facing * 450; }
+      }
+      // Hook projectiles (water splashes)
+      for (let i = 0; i < 5; i++) {
+        this.combat.projectiles.push({
+          x: f.x + f.facing * (50 + i * 60), y: f.y - 50 + (Math.random() - 0.5) * 30,
+          vx: f.facing * 550, r: 8, dmg: 0, from: f, type: 'mid', high: false,
+          color: '#1e90ff', sfx: 'sfx_water', dead: false
+        });
+      }
+      this.audio.play('sfx_whoosh');
+      this.renderer.addParticles(makeHitParticles('#1e90ff', f.x + f.facing * 80, f.y - 50, 30));
+      this.renderer.addParticles(makeHitParticles('#87ceeb', f.x + f.facing * 120, f.y - 40, 20));
     }
 
     // Banner
