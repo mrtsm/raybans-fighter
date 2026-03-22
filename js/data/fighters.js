@@ -85,6 +85,23 @@ export const FIGHTERS = {
       signature:{ cost:100, name:'TIDAL CRUSH', dmg:25 },
     },
   },
+  aria:{
+    id:'aria', name:'ARIA', icon:'🏹',
+    health:85, dashPx:95, walkSpeed:270, range:{ light:130, heavy:140, low:80 },
+    spriteScale: 1.0,
+    colors:{ core:'#ff69b4', glow:'#ffb6c1' },
+    voice:{ start:'aria_start', special:'aria_special', sig:'aria_sig', win:'aria_win', lose:'aria_lose' },
+    theme:'music_aria',
+    moves:{
+      light:{ startup:2, active:3, recovery:3, dmg:8, type:'mid', hitstunF:6 },
+      heavy:{ startup:6, active:4, recovery:6, dmg:20, type:'overhead', antiAir:true, hitstunF:12, pushPx:40 },
+      low:{ startup:3, active:2, recovery:3, dmg:8, type:'low', hitstunF:6 },
+      air:{ startup:2, active:3, recovery:3, dmg:10, type:'overhead', hitstunF:8 },
+      grab:{ startup:3, active:2, recovery:6, dmg:10, throwPx:140 },
+      special:{ cost:30, name:'ARROW RAIN', dmg:12 },
+      signature:{ cost:100, name:'CUPIDS WRATH', dmg:25 },
+    },
+  },
 };
 
 export const MASTERIES = {

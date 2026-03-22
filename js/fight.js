@@ -103,7 +103,7 @@ export class Fight {
     this._bannerT = 0;
     this.renderer.spriteAnimations = this.spriteAnimations;
 
-    const bgMap = { blaze: 2, volt: 1, shade: 3, granite: 0, marina: 4 };
+    const bgMap = { blaze: 2, volt: 1, shade: 3, granite: 0, marina: 4, aria: 5 };
     if (this.renderer.setArenaBg) this.renderer.setArenaBg(bgMap[this.p1.id] ?? 0);
   }
 
@@ -607,6 +607,24 @@ export class Fight {
       this.audio.play('sfx_whoosh');
       this.renderer.addParticles(makeHitParticles('#1e90ff', f.x + f.facing * 80, f.y - 50, 30));
       this.renderer.addParticles(makeHitParticles('#87ceeb', f.x + f.facing * 120, f.y - 40, 20));
+    }
+
+    if (id === 'aria') {
+      // CUPID'S WRATH — rain of pink arrows from above + direct hit
+      opp.blocking = 'none';
+      const res = opp.takeHit({ dmg, type: 'overhead', from: f });
+      if (res.hit) { opp.hitstunF = 22; opp.vy = 50; }
+      // Arrow rain projectiles from above
+      for (let i = 0; i < 7; i++) {
+        this.combat.projectiles.push({
+          x: opp.x - 80 + i * 30, y: opp.y - 200 - Math.random() * 100,
+          vx: f.facing * 50, vy: 600, r: 6, dmg: 0, from: f, type: 'overhead', high: true,
+          color: '#ff69b4', sfx: 'sfx_arrow', dead: false
+        });
+      }
+      this.audio.play('sfx_whoosh');
+      this.renderer.addParticles(makeHitParticles('#ff69b4', opp.x, opp.y - 60, 30));
+      this.renderer.addParticles(makeHitParticles('#ffb6c1', opp.x, opp.y - 100, 20));
     }
 
     // Banner

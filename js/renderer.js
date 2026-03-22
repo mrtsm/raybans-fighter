@@ -73,7 +73,7 @@ export class Renderer{
     this._parallaxSpeed = 12; // pixels per second for slow background scroll
 
     // Arena background rotation
-    this._arenaBackgrounds = ['arena_bg','arena_storm','arena_volcano','arena_shadow','arena_harbor'];
+    this._arenaBackgrounds = ['arena_bg','arena_storm','arena_volcano','arena_shadow','arena_harbor','arena_gym'];
     this._currentArenaBg = 0;
   }
 

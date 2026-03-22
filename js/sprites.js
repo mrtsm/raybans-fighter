@@ -193,8 +193,8 @@ export class SpriteManager {
     this._animT += dt;
   }
   async loadAll(onProgress) {
-    const fighters = ['blaze','granite','shade','volt','marina'];
-    const bgKeys = ['arena_bg','arena_storm','arena_volcano','arena_shadow','arena_harbor','title_bg'];
+    const fighters = ['blaze','granite','shade','volt','marina','aria'];
+    const bgKeys = ['arena_bg','arena_storm','arena_volcano','arena_shadow','arena_harbor','arena_gym','title_bg'];
     // Only load backgrounds + idle sprites upfront (9 assets instead of 45+)
     const total = fighters.length + bgKeys.length;
     let done = 0;

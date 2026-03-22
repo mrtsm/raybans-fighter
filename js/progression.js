@@ -24,7 +24,7 @@ export class Progression{
       try{
         const s = JSON.parse(raw);
         // Patch in any new fighters missing from old saves
-        const allFighters = ['blaze','granite','shade','volt','marina'];
+        const allFighters = ['blaze','granite','shade','volt','marina','aria'];
         for(const id of allFighters){
           if(!s.fighters[id]) s.fighters[id] = {xp:0, best:0};
           if(!('wonWith' in s)) s.wonWith = {};
@@ -34,10 +34,10 @@ export class Progression{
       }catch{}
     }
     return {
-      fighters:{ blaze:{xp:0, best:0}, granite:{xp:0, best:0}, shade:{xp:0, best:0}, volt:{xp:0, best:0}, marina:{xp:0, best:0} },
+      fighters:{ blaze:{xp:0, best:0}, granite:{xp:0, best:0}, shade:{xp:0, best:0}, volt:{xp:0, best:0}, marina:{xp:0, best:0}, aria:{xp:0, best:0} },
       overallBest:0,
       totals:{ lights:0, heavies:0, grabs:0, specials:0, perfectDodges:0, blocks:0, timeoutWins:0, sigs:0 },
-      wonWith:{ blaze:false, granite:false, shade:false, volt:false, marina:false },
+      wonWith:{ blaze:false, granite:false, shade:false, volt:false, marina:false, aria:false },
       achievements:{},
       daily:{ date: todayKey(), best:0, completed:false },
       meta:{ firstWinDate:null }
@@ -100,7 +100,7 @@ export class Progression{
       events.push({type:'mastery', fighterId, rank:newRank});
     }
 
-    if(['blaze','granite','shade','volt','marina'].every(id=>this.masteryRank(id)>='silver')){
+    if(['blaze','granite','shade','volt','marina','aria'].every(id=>this.masteryRank(id)>='silver')){
       events.push({type:'meta', kind:'silver_all'});
     }
     if(Object.values(s.wonWith).every(Boolean)){
