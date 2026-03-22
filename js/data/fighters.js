@@ -86,7 +86,7 @@ export const FIGHTERS = {
     },
   },
   aria:{
-    id:'aria', name:'ARIA', icon:'🏹',
+    id:'aria', name:'PENELOPE', icon:'🏹',
     health:85, dashPx:95, walkSpeed:270, range:{ light:130, heavy:140, low:80 },
     spriteScale: 1.0,
     colors:{ core:'#ff69b4', glow:'#ffb6c1' },
