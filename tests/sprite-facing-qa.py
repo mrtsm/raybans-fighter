@@ -18,7 +18,7 @@ from PIL import Image
 import json
 
 SPRITES_DIR = os.path.join(os.path.dirname(__file__), '..', 'assets', 'sprites')
-FIGHTERS = ['blaze', 'granite', 'shade', 'volt']
+FIGHTERS = ['blaze', 'granite', 'shade', 'volt', 'marina', 'aria']
 
 # Poses that involve directional action (attack extending one way)
 ATTACK_POSES = ['light', 'light_windup', 'light_followthrough',
